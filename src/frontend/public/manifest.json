@@ -1,0 +1,20 @@
+{
+  "name": "FF Tournaments",
+  "short_name": "FF Tournaments",
+  "description": "Free Fire Tournament App - Join competitive gaming tournaments",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a14",
+  "theme_color": "#0a0a14",
+  "icons": [
+    {
+      "src": "/assets/generated/ff-logo-transparent.dim_200x200.png",
+      "sizes": "200x200",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "lang": "en"
+}

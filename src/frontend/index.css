@@ -1,0 +1,281 @@
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* Gaming dark theme - always dark */
+    --background: 0.08 0.01 240;
+    --foreground: 0.95 0.005 80;
+    --card: 0.12 0.015 240;
+    --card-foreground: 0.95 0.005 80;
+    --popover: 0.14 0.015 240;
+    --popover-foreground: 0.95 0.005 80;
+
+    /* Neon orange primary */
+    --primary: 0.72 0.22 45;
+    --primary-foreground: 0.08 0.01 240;
+
+    /* Dark secondary */
+    --secondary: 0.18 0.02 240;
+    --secondary-foreground: 0.95 0.005 80;
+
+    --muted: 0.16 0.015 240;
+    --muted-foreground: 0.55 0.02 240;
+
+    /* Neon orange accent */
+    --accent: 0.72 0.22 45;
+    --accent-foreground: 0.08 0.01 240;
+
+    --destructive: 0.65 0.25 25;
+    --destructive-foreground: 0.95 0.005 80;
+
+    --border: 0.25 0.02 240;
+    --input: 0.18 0.02 240;
+    --ring: 0.72 0.22 45;
+
+    /* Custom gaming tokens */
+    --neon-orange: 0.72 0.22 45;
+    --neon-red: 0.58 0.25 25;
+    --neon-gold: 0.82 0.18 85;
+    --neon-green: 0.72 0.22 145;
+    --neon-blue: 0.62 0.2 240;
+
+    --slot-available: 0.72 0.22 145;
+    --slot-taken: 0.58 0.25 25;
+    --slot-mine: 0.62 0.2 240;
+
+    --card-glow: 0.72 0.22 45;
+
+    --chart-1: 0.72 0.22 45;
+    --chart-2: 0.58 0.25 25;
+    --chart-3: 0.82 0.18 85;
+    --chart-4: 0.72 0.22 145;
+    --chart-5: 0.62 0.2 240;
+
+    --sidebar: 0.1 0.015 240;
+    --sidebar-foreground: 0.95 0.005 80;
+    --sidebar-primary: 0.72 0.22 45;
+    --sidebar-primary-foreground: 0.08 0.01 240;
+    --sidebar-accent: 0.18 0.02 240;
+    --sidebar-accent-foreground: 0.95 0.005 80;
+    --sidebar-border: 0.25 0.02 240;
+    --sidebar-ring: 0.72 0.22 45;
+  }
+
+  /* Force dark - gaming app is always dark */
+  .dark {
+    --background: 0.08 0.01 240;
+    --foreground: 0.95 0.005 80;
+    --card: 0.12 0.015 240;
+    --card-foreground: 0.95 0.005 80;
+    --popover: 0.14 0.015 240;
+    --popover-foreground: 0.95 0.005 80;
+    --primary: 0.72 0.22 45;
+    --primary-foreground: 0.08 0.01 240;
+    --secondary: 0.18 0.02 240;
+    --secondary-foreground: 0.95 0.005 80;
+    --muted: 0.16 0.015 240;
+    --muted-foreground: 0.55 0.02 240;
+    --accent: 0.72 0.22 45;
+    --accent-foreground: 0.08 0.01 240;
+    --destructive: 0.65 0.25 25;
+    --destructive-foreground: 0.95 0.005 80;
+    --border: 0.25 0.02 240;
+    --input: 0.18 0.02 240;
+    --ring: 0.72 0.22 45;
+    --sidebar: 0.1 0.015 240;
+    --sidebar-foreground: 0.95 0.005 80;
+    --sidebar-primary: 0.72 0.22 45;
+    --sidebar-primary-foreground: 0.08 0.01 240;
+    --sidebar-accent: 0.18 0.02 240;
+    --sidebar-accent-foreground: 0.95 0.005 80;
+    --sidebar-border: 0.25 0.02 240;
+    --sidebar-ring: 0.72 0.22 45;
+  }
+
+  * {
+    border-color: oklch(var(--border));
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: oklch(var(--background));
+    color: oklch(var(--foreground));
+    font-family: "Rajdhani", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3 {
+    font-family: "Barlow Condensed", sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: "Barlow Condensed", sans-serif;
+  }
+
+  .font-mono-game {
+    font-family: "Share Tech Mono", monospace;
+  }
+
+  .neon-text-orange {
+    color: oklch(var(--neon-orange));
+    text-shadow: 0 0 8px oklch(var(--neon-orange) / 0.6);
+  }
+
+  .neon-text-gold {
+    color: oklch(var(--neon-gold));
+    text-shadow: 0 0 8px oklch(var(--neon-gold) / 0.5);
+  }
+
+  .neon-text-green {
+    color: oklch(var(--neon-green));
+  }
+
+  .neon-text-red {
+    color: oklch(var(--neon-red));
+  }
+
+  .card-glass {
+    background: oklch(var(--card));
+    border: 1px solid oklch(var(--border));
+    backdrop-filter: blur(8px);
+  }
+
+  .card-glow-hover {
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .card-glow-hover:hover {
+    box-shadow: 0 0 16px oklch(var(--neon-orange) / 0.2);
+    border-color: oklch(var(--neon-orange) / 0.4);
+  }
+
+  .btn-glow {
+    box-shadow: 0 0 12px oklch(var(--neon-orange) / 0.4);
+  }
+
+  .btn-glow:hover {
+    box-shadow: 0 0 20px oklch(var(--neon-orange) / 0.6);
+  }
+
+  .gradient-bg {
+    background: linear-gradient(
+      135deg,
+      oklch(0.08 0.01 240) 0%,
+      oklch(0.1 0.015 260) 50%,
+      oklch(0.08 0.02 280) 100%
+    );
+  }
+
+  .diagonal-stripe {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      oklch(var(--neon-orange) / 0.03) 2px,
+      oklch(var(--neon-orange) / 0.03) 4px
+    );
+  }
+
+  .slot-available {
+    background: oklch(var(--slot-available) / 0.15);
+    border: 1px solid oklch(var(--slot-available) / 0.5);
+    color: oklch(var(--slot-available));
+  }
+
+  .slot-taken {
+    background: oklch(var(--slot-taken) / 0.15);
+    border: 1px solid oklch(var(--slot-taken) / 0.3);
+    color: oklch(var(--slot-taken) / 0.5);
+    cursor: not-allowed;
+  }
+
+  .slot-mine {
+    background: oklch(var(--slot-mine) / 0.2);
+    border: 1px solid oklch(var(--slot-mine));
+    color: oklch(var(--slot-mine));
+    box-shadow: 0 0 8px oklch(var(--slot-mine) / 0.4);
+  }
+
+  .slot-selected {
+    background: oklch(var(--neon-orange) / 0.2);
+    border: 1px solid oklch(var(--neon-orange));
+    color: oklch(var(--neon-orange));
+    box-shadow: 0 0 8px oklch(var(--neon-orange) / 0.4);
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 8px oklch(var(--neon-orange) / 0.3); }
+    50% { box-shadow: 0 0 20px oklch(var(--neon-orange) / 0.6); }
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.4s ease-out;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .tab-active {
+    background: oklch(var(--neon-orange) / 0.15);
+    color: oklch(var(--neon-orange));
+    border: 1px solid oklch(var(--neon-orange) / 0.5);
+    box-shadow: 0 0 10px oklch(var(--neon-orange) / 0.2);
+  }
+
+  .tab-inactive {
+    background: oklch(var(--card));
+    color: oklch(var(--muted-foreground));
+    border: 1px solid oklch(var(--border));
+  }
+
+  /* Mobile app shell */
+  .app-shell {
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: oklch(var(--background));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(var(--neon-orange) / 0.4);
+    border-radius: 2px;
+  }
+}
