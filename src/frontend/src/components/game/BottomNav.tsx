@@ -1,9 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Wallet, User } from "lucide-react";
+import { Home, Wallet, User, Trophy } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/", icon: Home, label: "HOME" },
   { to: "/wallet", icon: Wallet, label: "WALLET" },
+  { to: "/leaderboard", icon: Trophy, label: "RANKS" },
   { to: "/profile", icon: User, label: "PROFILE" },
 ] as const;
 

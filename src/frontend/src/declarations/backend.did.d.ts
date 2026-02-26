@@ -11,6 +11,12 @@ import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
 export interface Category { 'id' : bigint, 'name' : string }
+export interface GlobalLeaderboardEntry {
+  'username' : string,
+  'player' : Principal,
+  'totalWinnings' : bigint,
+  'totalScore' : bigint,
+}
 export interface LeaderboardEntry {
   'player' : Principal,
   'score' : bigint,
@@ -57,6 +63,7 @@ export interface _SERVICE {
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCategories' : ActorMethod<[], Array<Category>>,
+  'getGlobalLeaderboard' : ActorMethod<[], Array<GlobalLeaderboardEntry>>,
   'getLeaderboard' : ActorMethod<[bigint], Array<LeaderboardEntry>>,
   'getTakenSlots' : ActorMethod<[bigint], Array<bigint>>,
   'getTournament' : ActorMethod<[bigint], [] | [Tournament]>,

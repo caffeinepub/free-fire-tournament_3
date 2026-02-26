@@ -18,6 +18,12 @@ export const UserProfile = IDL.Record({
   'balance' : IDL.Nat,
 });
 export const Category = IDL.Record({ 'id' : IDL.Nat, 'name' : IDL.Text });
+export const GlobalLeaderboardEntry = IDL.Record({
+  'username' : IDL.Text,
+  'player' : IDL.Principal,
+  'totalWinnings' : IDL.Nat,
+  'totalScore' : IDL.Nat,
+});
 export const LeaderboardEntry = IDL.Record({
   'player' : IDL.Principal,
   'score' : IDL.Nat,
@@ -74,6 +80,11 @@ export const idlService = IDL.Service({
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCategories' : IDL.Func([], [IDL.Vec(Category)], ['query']),
+  'getGlobalLeaderboard' : IDL.Func(
+      [],
+      [IDL.Vec(GlobalLeaderboardEntry)],
+      ['query'],
+    ),
   'getLeaderboard' : IDL.Func(
       [IDL.Nat],
       [IDL.Vec(LeaderboardEntry)],
@@ -113,6 +124,12 @@ export const idlFactory = ({ IDL }) => {
     'balance' : IDL.Nat,
   });
   const Category = IDL.Record({ 'id' : IDL.Nat, 'name' : IDL.Text });
+  const GlobalLeaderboardEntry = IDL.Record({
+    'username' : IDL.Text,
+    'player' : IDL.Principal,
+    'totalWinnings' : IDL.Nat,
+    'totalScore' : IDL.Nat,
+  });
   const LeaderboardEntry = IDL.Record({
     'player' : IDL.Principal,
     'score' : IDL.Nat,
@@ -169,6 +186,11 @@ export const idlFactory = ({ IDL }) => {
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCategories' : IDL.Func([], [IDL.Vec(Category)], ['query']),
+    'getGlobalLeaderboard' : IDL.Func(
+        [],
+        [IDL.Vec(GlobalLeaderboardEntry)],
+        ['query'],
+      ),
     'getLeaderboard' : IDL.Func(
         [IDL.Nat],
         [IDL.Vec(LeaderboardEntry)],

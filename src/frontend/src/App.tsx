@@ -14,6 +14,7 @@ import MatchDetailPage from "./pages/MatchDetailPage";
 import WalletPage from "./pages/WalletPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
+import LeaderboardPage from "./pages/LeaderboardPage";
 import TopHeader from "./components/game/TopHeader";
 import BottomNav from "./components/game/BottomNav";
 import ProfileSetup from "./components/game/ProfileSetup";
@@ -132,12 +133,19 @@ const adminRoute = createRoute({
   component: AdminPage,
 });
 
+const leaderboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/leaderboard",
+  component: LeaderboardPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   matchRoute,
   walletRoute,
   profileRoute,
   adminRoute,
+  leaderboardRoute,
 ]);
 
 const router = createRouter({ routeTree });

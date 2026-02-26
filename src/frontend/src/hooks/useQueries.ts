@@ -109,6 +109,19 @@ export function useGetLeaderboard(tournamentId: bigint | null) {
   });
 }
 
+export function useGetGlobalLeaderboard() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery({
+    queryKey: ["globalLeaderboard"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getGlobalLeaderboard();
+    },
+    enabled: !!actor && !actorFetching,
+    retry: false,
+  });
+}
+
 export function useGetTakenSlots(tournamentId: bigint | null) {
   const { actor, isFetching: actorFetching } = useActor();
   return useQuery({

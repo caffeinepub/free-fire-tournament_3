@@ -8,7 +8,9 @@ import Iter "mo:core/Iter";
 import Nat "mo:core/Nat";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
@@ -58,9 +60,22 @@ actor {
     balance : Nat;
   };
 
+  type GlobalLeaderboardEntry = {
+    player : Principal;
+    username : Text;
+    totalScore : Nat;
+    totalWinnings : Nat;
+  };
+
   module LeaderboardEntry {
     public func compare(entry1 : LeaderboardEntry, entry2 : LeaderboardEntry) : Order.Order {
       Nat.compare(entry2.score, entry1.score);
+    };
+  };
+
+  module GlobalLeaderboardEntry {
+    public func compare(entry1 : GlobalLeaderboardEntry, entry2 : GlobalLeaderboardEntry) : Order.Order {
+      Nat.compare(entry2.totalScore, entry1.totalScore);
     };
   };
 
@@ -322,6 +337,74 @@ actor {
       case (null) { [] };
       case (?entries) { entries.toArray() };
     };
+  };
+
+  // Global Leaderboard
+  public query func getGlobalLeaderboard() : async [GlobalLeaderboardEntry] {
+    let aggregatedScores = Map.empty<Principal, Nat>();
+
+    // Aggregate scores from all tournaments
+    for ((_, leaderboard) in leaderboards.entries()) {
+      for (entry in leaderboard.values()) {
+        let currentScore = switch (aggregatedScores.get(entry.player)) {
+          case (null) { 0 };
+          case (?score) { score };
+        };
+        aggregatedScores.add(entry.player, currentScore + entry.score);
+      };
+    };
+
+    // Create leaderboard entries with usernames
+    let leaderboardEntries = List.empty<GlobalLeaderboardEntry>();
+    for ((player, totalScore) in aggregatedScores.entries()) {
+      let username = switch (userProfiles.get(player)) {
+        case (null) { "Unknown" };
+        case (?profile) { profile.username };
+      };
+      let entry : GlobalLeaderboardEntry = {
+        player;
+        username;
+        totalScore;
+        totalWinnings = totalScore; // Using score as a proxy for winnings
+      };
+      leaderboardEntries.add(entry);
+    };
+
+    // Sort the global leaderboard entries by totalScore descending
+    let sortedList = List.empty<GlobalLeaderboardEntry>();
+    for (entry in leaderboardEntries.values()) {
+      var inserted = false;
+      let newList = List.empty<GlobalLeaderboardEntry>();
+
+      for (e in sortedList.values()) {
+        if (not inserted and GlobalLeaderboardEntry.compare(entry, e) == #less) {
+          newList.add(entry);
+          inserted := true;
+        };
+        newList.add(e);
+      };
+
+      if (not inserted) {
+        newList.add(entry);
+      };
+
+      sortedList.clear();
+      for (e in newList.values()) {
+        sortedList.add(e);
+      };
+    };
+
+    // Limit results to top 100 entries
+    let limitedEntries = List.empty<GlobalLeaderboardEntry>();
+    var count = 0;
+    for (entry in sortedList.values()) {
+      if (count < 100) {
+        limitedEntries.add(entry);
+        count += 1;
+      };
+    };
+
+    limitedEntries.toArray();
   };
 
   // User Profile Management - Following the required interface

@@ -1,51 +1,38 @@
-# Free Fire Tournament App
+# Free Fire Tournament
 
 ## Current State
-New project. No existing code.
+- Bottom nav has 3 items: Home, Wallet, Profile
+- Leaderboard exists only per-tournament (inside MatchDetailPage as a side tab)
+- No global leaderboard page/route
+- Backend has `getLeaderboard(tournamentId)` (per-tournament scores) but no global ranking
 
 ## Requested Changes (Diff)
 
 ### Add
-- Home screen with top category bar (BR, Clash Squad, Lone Wolf) -- admin can add more categories
-- Match cards showing Entry Fee, Total Winning Prize, Available Slots
-- Match Detail page with Join button, Rules section, Prize Distribution breakdown
-- Slot Selection grid (players pick a specific slot number)
-- Leaderboard tab/section showing ranked players per tournament
-- User Sign-in / Sign-up system (authentication)
-- User Profile page
-- Wallet system: deposit, withdraw, transaction history
-- Mobile-first responsive layout (PWA-ready so it works like an app on smartphones)
+- New `/leaderboard` route and `LeaderboardPage` component showing Top 100 players globally
+- Backend `getGlobalLeaderboard` query that aggregates all leaderboard entries per player (total score across all tournaments) and returns top 100 sorted by total score descending, with username included
+- New `useGetGlobalLeaderboard` query hook
+- Leaderboard nav item (Trophy icon) in BottomNav, placed **between** Wallet and Profile
 
 ### Modify
-N/A
+- `BottomNav.tsx`: Insert Leaderboard nav item between Wallet and Profile (4 items total: Home, Wallet, Leaderboard, Profile)
+- `App.tsx`: Add `/leaderboard` route pointing to LeaderboardPage
+- `useQueries.ts`: Add `useGetGlobalLeaderboard` hook
 
 ### Remove
-N/A
+- Nothing removed
 
 ## Implementation Plan
-1. Backend:
-   - Authorization (user accounts, roles: admin/player)
-   - Tournament/Match data: id, title, category, entryFee, prizePool, totalSlots, filledSlots, rules, prizeDistribution[]
-   - Category management: id, name (admin can add)
-   - Slot selection: tournamentId + slotNumber -> userId mapping
-   - Wallet: balance per user, deposit/withdraw transactions with history
-   - Leaderboard: per-tournament ranking (wins, points)
-   - Join tournament: deduct entry fee, assign slot
-
-2. Frontend:
-   - Layout: bottom nav bar (Home, Tournaments, Wallet, Profile)
-   - Home: category tab bar at top, scrollable match cards grid
-   - Match card: title, category badge, entry fee, prize pool, slots available
-   - Match Detail page: join button, rules accordion, prize table, slot grid, leaderboard side tab
-   - Auth pages: Sign In, Sign Up
-   - Wallet page: balance display, deposit/withdraw buttons, transaction history list
-   - Profile page: username, stats, edit profile
-   - Mobile-first design, PWA manifest for "Add to Home Screen" (closest to APK on web)
+1. Add `getGlobalLeaderboard` to backend — returns array of `{ player: Principal, username: Text, totalScore: Nat, totalWinnings: Nat }` sorted by totalScore desc, capped at 100
+2. Regenerate backend bindings
+3. Add `useGetGlobalLeaderboard` hook to `useQueries.ts`
+4. Create `src/frontend/src/pages/LeaderboardPage.tsx` — ranked list with rank badge, username, total score/winnings
+5. Update `BottomNav.tsx` — add Trophy icon between Wallet and Profile
+6. Update `App.tsx` — add leaderboardRoute
 
 ## UX Notes
-- Mobile-first, full-width card layouts for small screens
-- Bright gaming aesthetic (dark background, neon accent colors matching Free Fire style)
-- Category tabs should be horizontally scrollable
-- Slot grid should show taken vs. available slots clearly (color-coded)
-- Wallet balance prominently visible in the header/profile
-- PWA support: manifest.json + service worker so users can install to home screen on Android (acts like APK)
+- Leaderboard icon: Trophy (lucide-react)
+- Top 3 players get gold/silver/bronze rank badges
+- Show rank number, username, total winnings (coins), total score
+- Loading skeleton while fetching
+- Empty state if no scores posted yet

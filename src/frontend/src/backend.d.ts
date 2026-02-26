@@ -24,6 +24,12 @@ export interface Category {
     name: string;
 }
 export type Time = bigint;
+export interface GlobalLeaderboardEntry {
+    username: string;
+    player: Principal;
+    totalWinnings: bigint;
+    totalScore: bigint;
+}
 export interface Tournament {
     id: bigint;
     categoryId: bigint;
@@ -63,6 +69,7 @@ export interface backendInterface {
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCategories(): Promise<Array<Category>>;
+    getGlobalLeaderboard(): Promise<Array<GlobalLeaderboardEntry>>;
     getLeaderboard(tournamentId: bigint): Promise<Array<LeaderboardEntry>>;
     getTakenSlots(tournamentId: bigint): Promise<Array<bigint>>;
     getTournament(id: bigint): Promise<Tournament | null>;
