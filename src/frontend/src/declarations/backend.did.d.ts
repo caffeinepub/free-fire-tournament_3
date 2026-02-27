@@ -11,6 +11,18 @@ import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
 export interface Category { 'id' : bigint, 'name' : string }
+export interface DepositRequest {
+  'id' : bigint,
+  'status' : { 'pending' : null } |
+    { 'approved' : null } |
+    { 'rejected' : null },
+  'paymentMethod' : { 'easyPaisa' : null } |
+    { 'jazzCash' : null },
+  'transactionReference' : string,
+  'user' : Principal,
+  'timestamp' : Time,
+  'amount' : bigint,
+}
 export interface GlobalLeaderboardEntry {
   'username' : string,
   'player' : Principal,
@@ -22,6 +34,7 @@ export interface LeaderboardEntry {
   'score' : bigint,
   'tournamentId' : bigint,
 }
+export interface PaymentNumbers { 'easyPaisa' : string, 'jazzCash' : string }
 export type Time = bigint;
 export interface Tournament {
   'id' : bigint,
@@ -51,20 +64,38 @@ export interface UserProfile { 'username' : string, 'balance' : bigint }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export interface WithdrawalRequest {
+  'id' : bigint,
+  'status' : { 'pending' : null } |
+    { 'approved' : null } |
+    { 'rejected' : null },
+  'user' : Principal,
+  'timestamp' : Time,
+  'amount' : bigint,
+}
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addCoins' : ActorMethod<[Principal, bigint], undefined>,
+  'approveDepositRequest' : ActorMethod<[bigint], undefined>,
+  'approveWithdrawalRequest' : ActorMethod<[bigint], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createCategory' : ActorMethod<[string], undefined>,
   'createTournament' : ActorMethod<
     [string, bigint, bigint, bigint, bigint, string, Array<bigint>],
     undefined
   >,
+  'getAllDepositRequests' : ActorMethod<[], Array<DepositRequest>>,
+  'getAllWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
+  'getCallerDepositRequests' : ActorMethod<[], Array<DepositRequest>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getCallerWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
   'getCategories' : ActorMethod<[], Array<Category>>,
   'getGlobalLeaderboard' : ActorMethod<[], Array<GlobalLeaderboardEntry>>,
   'getLeaderboard' : ActorMethod<[bigint], Array<LeaderboardEntry>>,
+  'getPaymentNumbers' : ActorMethod<[], PaymentNumbers>,
+  'getPendingDepositRequests' : ActorMethod<[], Array<DepositRequest>>,
+  'getPendingWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
   'getTakenSlots' : ActorMethod<[bigint], Array<bigint>>,
   'getTournament' : ActorMethod<[bigint], [] | [Tournament]>,
   'getTournaments' : ActorMethod<[], Array<Tournament>>,
@@ -73,9 +104,16 @@ export interface _SERVICE {
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'joinTournament' : ActorMethod<[bigint, bigint], undefined>,
   'postScores' : ActorMethod<[bigint, Array<[Principal, bigint]>], undefined>,
-  'requestWithdrawal' : ActorMethod<[bigint], undefined>,
+  'rejectDepositRequest' : ActorMethod<[bigint], undefined>,
+  'rejectWithdrawalRequest' : ActorMethod<[bigint], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'setPaymentNumbers' : ActorMethod<[string, string], undefined>,
   'setUsername' : ActorMethod<[string], undefined>,
+  'submitDepositRequest' : ActorMethod<
+    [bigint, { 'easyPaisa' : null } | { 'jazzCash' : null }, string],
+    bigint
+  >,
+  'submitWithdrawalRequest' : ActorMethod<[bigint], bigint>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

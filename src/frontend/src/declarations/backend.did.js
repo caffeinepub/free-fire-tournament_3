@@ -13,6 +13,34 @@ export const UserRole = IDL.Variant({
   'user' : IDL.Null,
   'guest' : IDL.Null,
 });
+export const Time = IDL.Int;
+export const DepositRequest = IDL.Record({
+  'id' : IDL.Nat,
+  'status' : IDL.Variant({
+    'pending' : IDL.Null,
+    'approved' : IDL.Null,
+    'rejected' : IDL.Null,
+  }),
+  'paymentMethod' : IDL.Variant({
+    'easyPaisa' : IDL.Null,
+    'jazzCash' : IDL.Null,
+  }),
+  'transactionReference' : IDL.Text,
+  'user' : IDL.Principal,
+  'timestamp' : Time,
+  'amount' : IDL.Nat,
+});
+export const WithdrawalRequest = IDL.Record({
+  'id' : IDL.Nat,
+  'status' : IDL.Variant({
+    'pending' : IDL.Null,
+    'approved' : IDL.Null,
+    'rejected' : IDL.Null,
+  }),
+  'user' : IDL.Principal,
+  'timestamp' : Time,
+  'amount' : IDL.Nat,
+});
 export const UserProfile = IDL.Record({
   'username' : IDL.Text,
   'balance' : IDL.Nat,
@@ -28,6 +56,10 @@ export const LeaderboardEntry = IDL.Record({
   'player' : IDL.Principal,
   'score' : IDL.Nat,
   'tournamentId' : IDL.Nat,
+});
+export const PaymentNumbers = IDL.Record({
+  'easyPaisa' : IDL.Text,
+  'jazzCash' : IDL.Text,
 });
 export const TournamentStatus = IDL.Variant({
   'active' : IDL.Null,
@@ -46,7 +78,6 @@ export const Tournament = IDL.Record({
   'rules' : IDL.Text,
   'prizePool' : IDL.Nat,
 });
-export const Time = IDL.Int;
 export const Transaction = IDL.Record({
   'id' : IDL.Nat,
   'user' : IDL.Principal,
@@ -62,6 +93,8 @@ export const Transaction = IDL.Record({
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addCoins' : IDL.Func([IDL.Principal, IDL.Nat], [], []),
+  'approveDepositRequest' : IDL.Func([IDL.Nat], [], []),
+  'approveWithdrawalRequest' : IDL.Func([IDL.Nat], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'createCategory' : IDL.Func([IDL.Text], [], []),
   'createTournament' : IDL.Func(
@@ -77,8 +110,24 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'getAllDepositRequests' : IDL.Func([], [IDL.Vec(DepositRequest)], ['query']),
+  'getAllWithdrawalRequests' : IDL.Func(
+      [],
+      [IDL.Vec(WithdrawalRequest)],
+      ['query'],
+    ),
+  'getCallerDepositRequests' : IDL.Func(
+      [],
+      [IDL.Vec(DepositRequest)],
+      ['query'],
+    ),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getCallerWithdrawalRequests' : IDL.Func(
+      [],
+      [IDL.Vec(WithdrawalRequest)],
+      ['query'],
+    ),
   'getCategories' : IDL.Func([], [IDL.Vec(Category)], ['query']),
   'getGlobalLeaderboard' : IDL.Func(
       [],
@@ -88,6 +137,17 @@ export const idlService = IDL.Service({
   'getLeaderboard' : IDL.Func(
       [IDL.Nat],
       [IDL.Vec(LeaderboardEntry)],
+      ['query'],
+    ),
+  'getPaymentNumbers' : IDL.Func([], [PaymentNumbers], ['query']),
+  'getPendingDepositRequests' : IDL.Func(
+      [],
+      [IDL.Vec(DepositRequest)],
+      ['query'],
+    ),
+  'getPendingWithdrawalRequests' : IDL.Func(
+      [],
+      [IDL.Vec(WithdrawalRequest)],
       ['query'],
     ),
   'getTakenSlots' : IDL.Func([IDL.Nat], [IDL.Vec(IDL.Nat)], ['query']),
@@ -106,9 +166,21 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
-  'requestWithdrawal' : IDL.Func([IDL.Nat], [], []),
+  'rejectDepositRequest' : IDL.Func([IDL.Nat], [], []),
+  'rejectWithdrawalRequest' : IDL.Func([IDL.Nat], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'setPaymentNumbers' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'setUsername' : IDL.Func([IDL.Text], [], []),
+  'submitDepositRequest' : IDL.Func(
+      [
+        IDL.Nat,
+        IDL.Variant({ 'easyPaisa' : IDL.Null, 'jazzCash' : IDL.Null }),
+        IDL.Text,
+      ],
+      [IDL.Nat],
+      [],
+    ),
+  'submitWithdrawalRequest' : IDL.Func([IDL.Nat], [IDL.Nat], []),
 });
 
 export const idlInitArgs = [];
@@ -118,6 +190,34 @@ export const idlFactory = ({ IDL }) => {
     'admin' : IDL.Null,
     'user' : IDL.Null,
     'guest' : IDL.Null,
+  });
+  const Time = IDL.Int;
+  const DepositRequest = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : IDL.Variant({
+      'pending' : IDL.Null,
+      'approved' : IDL.Null,
+      'rejected' : IDL.Null,
+    }),
+    'paymentMethod' : IDL.Variant({
+      'easyPaisa' : IDL.Null,
+      'jazzCash' : IDL.Null,
+    }),
+    'transactionReference' : IDL.Text,
+    'user' : IDL.Principal,
+    'timestamp' : Time,
+    'amount' : IDL.Nat,
+  });
+  const WithdrawalRequest = IDL.Record({
+    'id' : IDL.Nat,
+    'status' : IDL.Variant({
+      'pending' : IDL.Null,
+      'approved' : IDL.Null,
+      'rejected' : IDL.Null,
+    }),
+    'user' : IDL.Principal,
+    'timestamp' : Time,
+    'amount' : IDL.Nat,
   });
   const UserProfile = IDL.Record({
     'username' : IDL.Text,
@@ -134,6 +234,10 @@ export const idlFactory = ({ IDL }) => {
     'player' : IDL.Principal,
     'score' : IDL.Nat,
     'tournamentId' : IDL.Nat,
+  });
+  const PaymentNumbers = IDL.Record({
+    'easyPaisa' : IDL.Text,
+    'jazzCash' : IDL.Text,
   });
   const TournamentStatus = IDL.Variant({
     'active' : IDL.Null,
@@ -152,7 +256,6 @@ export const idlFactory = ({ IDL }) => {
     'rules' : IDL.Text,
     'prizePool' : IDL.Nat,
   });
-  const Time = IDL.Int;
   const Transaction = IDL.Record({
     'id' : IDL.Nat,
     'user' : IDL.Principal,
@@ -168,6 +271,8 @@ export const idlFactory = ({ IDL }) => {
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addCoins' : IDL.Func([IDL.Principal, IDL.Nat], [], []),
+    'approveDepositRequest' : IDL.Func([IDL.Nat], [], []),
+    'approveWithdrawalRequest' : IDL.Func([IDL.Nat], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'createCategory' : IDL.Func([IDL.Text], [], []),
     'createTournament' : IDL.Func(
@@ -183,8 +288,28 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'getAllDepositRequests' : IDL.Func(
+        [],
+        [IDL.Vec(DepositRequest)],
+        ['query'],
+      ),
+    'getAllWithdrawalRequests' : IDL.Func(
+        [],
+        [IDL.Vec(WithdrawalRequest)],
+        ['query'],
+      ),
+    'getCallerDepositRequests' : IDL.Func(
+        [],
+        [IDL.Vec(DepositRequest)],
+        ['query'],
+      ),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getCallerWithdrawalRequests' : IDL.Func(
+        [],
+        [IDL.Vec(WithdrawalRequest)],
+        ['query'],
+      ),
     'getCategories' : IDL.Func([], [IDL.Vec(Category)], ['query']),
     'getGlobalLeaderboard' : IDL.Func(
         [],
@@ -194,6 +319,17 @@ export const idlFactory = ({ IDL }) => {
     'getLeaderboard' : IDL.Func(
         [IDL.Nat],
         [IDL.Vec(LeaderboardEntry)],
+        ['query'],
+      ),
+    'getPaymentNumbers' : IDL.Func([], [PaymentNumbers], ['query']),
+    'getPendingDepositRequests' : IDL.Func(
+        [],
+        [IDL.Vec(DepositRequest)],
+        ['query'],
+      ),
+    'getPendingWithdrawalRequests' : IDL.Func(
+        [],
+        [IDL.Vec(WithdrawalRequest)],
         ['query'],
       ),
     'getTakenSlots' : IDL.Func([IDL.Nat], [IDL.Vec(IDL.Nat)], ['query']),
@@ -212,9 +348,21 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
-    'requestWithdrawal' : IDL.Func([IDL.Nat], [], []),
+    'rejectDepositRequest' : IDL.Func([IDL.Nat], [], []),
+    'rejectWithdrawalRequest' : IDL.Func([IDL.Nat], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'setPaymentNumbers' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'setUsername' : IDL.Func([IDL.Text], [], []),
+    'submitDepositRequest' : IDL.Func(
+        [
+          IDL.Nat,
+          IDL.Variant({ 'easyPaisa' : IDL.Null, 'jazzCash' : IDL.Null }),
+          IDL.Text,
+        ],
+        [IDL.Nat],
+        [],
+      ),
+    'submitWithdrawalRequest' : IDL.Func([IDL.Nat], [IDL.Nat], []),
   });
 };
 

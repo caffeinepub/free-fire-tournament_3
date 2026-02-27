@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useCreateCategory,
   useCreateTournament,
@@ -9,8 +8,16 @@ import {
   useAddCoins,
   useGetCategories,
   useIsCallerAdmin,
+  useGetPaymentNumbers,
+  useSetPaymentNumbers,
+  useGetPendingDepositRequests,
+  useGetPendingWithdrawalRequests,
+  useApproveDepositRequest,
+  useRejectDepositRequest,
+  useApproveWithdrawalRequest,
+  useRejectWithdrawalRequest,
 } from "../hooks/useQueries";
-import { UserRole } from "../backend.d";
+import { UserRole, Variant_easyPaisa_jazzCash } from "../backend.d";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Plus, Shield, Swords, Users, Coins, Star } from "lucide-react";
+import { ArrowLeft, Plus, Shield, Swords, Users, Coins, Star, CreditCard, ArrowDownLeft, ArrowUpRight, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Principal } from "@icp-sdk/core/principal";
 
@@ -52,17 +59,33 @@ function SectionCard({
   );
 }
 
+function truncatePrincipal(principal: Principal): string {
+  const str = principal.toString();
+  if (str.length <= 16) return str;
+  return `${str.slice(0, 8)}...${str.slice(-4)}`;
+}
+
 export default function AdminPage() {
   const navigate = useNavigate();
-  const { identity } = useInternetIdentity();
   const { data: isAdmin, isLoading: adminLoading } = useIsCallerAdmin();
   const { data: categories } = useGetCategories();
+  const { data: paymentNumbers } = useGetPaymentNumbers();
+  const { data: pendingDeposits, isLoading: depositLoading } = useGetPendingDepositRequests();
+  const { data: pendingWithdrawals, isLoading: withdrawalLoading } = useGetPendingWithdrawalRequests();
 
   const createCategoryMutation = useCreateCategory();
   const createTournamentMutation = useCreateTournament();
   const postScoresMutation = usePostScores();
   const assignRoleMutation = useAssignCallerUserRole();
   const addCoinsMutation = useAddCoins();
+  const setPaymentNumbersMutation = useSetPaymentNumbers();
+  const approveDepositMutation = useApproveDepositRequest();
+  const rejectDepositMutation = useRejectDepositRequest();
+  const approveWithdrawalMutation = useApproveWithdrawalRequest();
+  const rejectWithdrawalMutation = useRejectWithdrawalRequest();
+
+  // Payment Numbers
+  const [pJazzCash, setPJazzCash] = useState("");
 
   // Create Category
   const [catName, setCatName] = useState("");
@@ -119,6 +142,24 @@ export default function AdminPage() {
       setCatName("");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const handleQuickSetup = async () => {
+    const defaultCategories = ["BR", "CS", "Lone Wolf"];
+    const existingNames = (categories ?? []).map((c) => c.name.toLowerCase());
+    const toCreate = defaultCategories.filter((name) => !existingNames.includes(name.toLowerCase()));
+    if (toCreate.length === 0) {
+      toast.info("BR, CS, and Lone Wolf already exist!");
+      return;
+    }
+    try {
+      for (const name of toCreate) {
+        await createCategoryMutation.mutateAsync(name);
+      }
+      toast.success(`Added: ${toCreate.join(", ")}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Setup failed");
     }
   };
 
@@ -194,6 +235,56 @@ export default function AdminPage() {
     }
   };
 
+  const handleSetPaymentNumbers = async () => {
+    if (!pJazzCash.trim()) { toast.error("Enter JazzCash number"); return; }
+    try {
+      await setPaymentNumbersMutation.mutateAsync({
+        jazzCash: pJazzCash.trim(),
+        easyPaisa: "",
+      });
+      toast.success("JazzCash number saved!");
+      setPJazzCash("");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const handleApproveDeposit = async (requestId: bigint) => {
+    try {
+      await approveDepositMutation.mutateAsync(requestId);
+      toast.success("Deposit approved! Coins added to user wallet.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const handleRejectDeposit = async (requestId: bigint) => {
+    try {
+      await rejectDepositMutation.mutateAsync(requestId);
+      toast.success("Deposit request rejected.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const handleApproveWithdrawal = async (requestId: bigint) => {
+    try {
+      await approveWithdrawalMutation.mutateAsync(requestId);
+      toast.success("Withdrawal approved!");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const handleRejectWithdrawal = async (requestId: bigint) => {
+    try {
+      await rejectWithdrawalMutation.mutateAsync(requestId);
+      toast.success("Withdrawal request rejected.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
   const inputStyle = {
     background: "oklch(0.16 0.02 240)",
     border: "1px solid oklch(0.28 0.02 240)",
@@ -225,8 +316,254 @@ export default function AdminPage() {
 
       {/* Content */}
       <div className="flex flex-col gap-4 p-4">
+
+        {/* Payment Numbers */}
+        <SectionCard title="PAYMENT NUMBERS" icon={CreditCard}>
+          {paymentNumbers?.jazzCash && (
+            <div
+              className="rounded-xl p-3 flex flex-col gap-1.5"
+              style={{ background: "oklch(0.72 0.22 45 / 0.08)", border: "1px solid oklch(0.72 0.22 45 / 0.2)" }}
+            >
+              <p className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">CURRENT NUMBER</p>
+              <p className="text-xs font-mono-game" style={{ color: "oklch(0.9 0.01 240)" }}>
+                <span style={{ color: "oklch(0.75 0.2 300)" }}>JazzCash:</span> {paymentNumbers.jazzCash}
+              </p>
+            </div>
+          )}
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs font-display text-muted-foreground tracking-wider">JAZZCASH NUMBER</Label>
+            <Input
+              placeholder={paymentNumbers?.jazzCash || "e.g. 03242646964"}
+              value={pJazzCash}
+              onChange={(e) => setPJazzCash(e.target.value)}
+              style={inputStyle}
+              className="h-10 font-mono-game text-sm"
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={handleSetPaymentNumbers}
+            disabled={setPaymentNumbersMutation.isPending}
+            className="font-display font-bold tracking-wider h-10"
+            style={{
+              background: "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+              color: "oklch(0.08 0.01 240)",
+              border: "none",
+            }}
+          >
+            {setPaymentNumbersMutation.isPending ? "Saving..." : "SAVE JAZZCASH NUMBER"}
+          </Button>
+        </SectionCard>
+
+        {/* Pending Deposit Requests */}
+        <SectionCard title="DEPOSIT REQUESTS" icon={ArrowDownLeft}>
+          {depositLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <div
+                className="w-6 h-6 border-2 rounded-full animate-spin"
+                style={{ borderColor: "oklch(0.72 0.22 145)", borderTopColor: "transparent" }}
+              />
+            </div>
+          ) : !pendingDeposits || pendingDeposits.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-6 gap-2">
+              <ArrowDownLeft className="w-8 h-8 text-muted-foreground/30" />
+              <p className="text-sm font-body text-muted-foreground">No pending requests</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {pendingDeposits.map((req) => {
+                const isJazz = req.paymentMethod === Variant_easyPaisa_jazzCash.jazzCash;
+                return (
+                  <div
+                    key={req.id.toString()}
+                    className="rounded-xl p-3 flex flex-col gap-2"
+                    style={{ background: "oklch(0.14 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-[10px] font-mono-game text-muted-foreground truncate">
+                          {truncatePrincipal(req.user)}
+                        </span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-display font-bold text-sm neon-text-gold">
+                            +{req.amount.toString()} coins
+                          </span>
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-display font-bold tracking-wider"
+                            style={
+                              isJazz
+                                ? { background: "oklch(0.6 0.2 300 / 0.15)", color: "oklch(0.75 0.2 300)", border: "1px solid oklch(0.6 0.2 300 / 0.3)" }
+                                : { background: "oklch(0.72 0.22 145 / 0.15)", color: "oklch(0.75 0.22 145)", border: "1px solid oklch(0.72 0.22 145 / 0.3)" }
+                            }
+                          >
+                            {isJazz ? "JAZZCASH" : "EASYPAISA"}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono-game text-muted-foreground">
+                          TID: {req.transactionReference}
+                        </span>
+                        <span className="text-[10px] font-mono-game text-muted-foreground">
+                          {new Date(Number(req.timestamp / 1_000_000n)).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        onClick={() => handleApproveDeposit(req.id)}
+                        disabled={approveDepositMutation.isPending}
+                        className="h-9 font-display font-bold text-xs tracking-wider"
+                        style={{
+                          background: "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+                          color: "oklch(0.08 0.01 240)",
+                          border: "none",
+                        }}
+                      >
+                        APPROVE
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => handleRejectDeposit(req.id)}
+                        disabled={rejectDepositMutation.isPending}
+                        className="h-9 font-display font-bold text-xs tracking-wider"
+                        style={{
+                          background: "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
+                          color: "oklch(0.95 0.005 80)",
+                          border: "none",
+                        }}
+                      >
+                        REJECT
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SectionCard>
+
+        {/* Pending Withdrawal Requests */}
+        <SectionCard title="WITHDRAWAL REQUESTS" icon={ArrowUpRight}>
+          {withdrawalLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <div
+                className="w-6 h-6 border-2 rounded-full animate-spin"
+                style={{ borderColor: "oklch(0.65 0.25 25)", borderTopColor: "transparent" }}
+              />
+            </div>
+          ) : !pendingWithdrawals || pendingWithdrawals.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-6 gap-2">
+              <ArrowUpRight className="w-8 h-8 text-muted-foreground/30" />
+              <p className="text-sm font-body text-muted-foreground">No pending requests</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {pendingWithdrawals.map((req) => (
+                <div
+                  key={req.id.toString()}
+                  className="rounded-xl p-3 flex flex-col gap-2"
+                  style={{ background: "oklch(0.14 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
+                >
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-mono-game text-muted-foreground">
+                      {truncatePrincipal(req.user)}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-display font-bold text-sm" style={{ color: "oklch(0.72 0.25 25)" }}>
+                        -{req.amount.toString()} coins
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] font-mono-game text-muted-foreground">
+                        <Clock className="w-2.5 h-2.5" />
+                        {new Date(Number(req.timestamp / 1_000_000n)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => handleApproveWithdrawal(req.id)}
+                      disabled={approveWithdrawalMutation.isPending}
+                      className="h-9 font-display font-bold text-xs tracking-wider"
+                      style={{
+                        background: "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+                        color: "oklch(0.08 0.01 240)",
+                        border: "none",
+                      }}
+                    >
+                      APPROVE
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => handleRejectWithdrawal(req.id)}
+                      disabled={rejectWithdrawalMutation.isPending}
+                      className="h-9 font-display font-bold text-xs tracking-wider"
+                      style={{
+                        background: "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
+                        color: "oklch(0.95 0.005 80)",
+                        border: "none",
+                      }}
+                    >
+                      REJECT
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+
         {/* Create Category */}
         <SectionCard title="CREATE CATEGORY" icon={Plus}>
+          {/* Quick Setup */}
+          <div
+            className="rounded-xl p-3 flex flex-col gap-2"
+            style={{ background: "oklch(0.72 0.22 145 / 0.06)", border: "1px solid oklch(0.72 0.22 145 / 0.2)" }}
+          >
+            <p className="text-xs font-display font-bold tracking-wider" style={{ color: "oklch(0.75 0.22 145)" }}>
+              QUICK SETUP
+            </p>
+            <p className="text-[11px] font-body text-muted-foreground">
+              Ek click mein BR, CS, aur Lone Wolf categories add karein
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              {["BR", "CS", "Lone Wolf"].map((name) => {
+                const exists = (categories ?? []).some((c) => c.name.toLowerCase() === name.toLowerCase());
+                return (
+                  <span
+                    key={name}
+                    className="px-2 py-1 rounded text-[10px] font-display font-bold tracking-wider"
+                    style={
+                      exists
+                        ? { background: "oklch(0.72 0.22 145 / 0.15)", color: "oklch(0.75 0.22 145)", border: "1px solid oklch(0.72 0.22 145 / 0.3)" }
+                        : { background: "oklch(0.65 0.25 25 / 0.15)", color: "oklch(0.72 0.25 25)", border: "1px solid oklch(0.65 0.25 25 / 0.3)" }
+                    }
+                  >
+                    {exists ? `✓ ${name}` : name}
+                  </span>
+                );
+              })}
+            </div>
+            <Button
+              type="button"
+              onClick={handleQuickSetup}
+              disabled={createCategoryMutation.isPending}
+              className="h-9 font-display font-bold text-xs tracking-wider w-full"
+              style={{
+                background: "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+                color: "oklch(0.08 0.01 240)",
+                border: "none",
+              }}
+            >
+              {createCategoryMutation.isPending ? "Adding..." : "ADD BR + CS + LONE WOLF"}
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-px" style={{ background: "oklch(0.25 0.02 240)" }} />
+            <span className="text-[10px] font-display text-muted-foreground tracking-wider">OR ADD CUSTOM</span>
+            <div className="flex-1 h-px" style={{ background: "oklch(0.25 0.02 240)" }} />
+          </div>
+
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-display text-muted-foreground tracking-wider">
               CATEGORY NAME

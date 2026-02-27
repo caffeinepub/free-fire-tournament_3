@@ -228,17 +228,205 @@ export function useAddCoins() {
   });
 }
 
-export function useRequestWithdrawal() {
+export function useSubmitWithdrawalRequest() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (amount: bigint) => {
       if (!actor) throw new Error("Actor not available");
-      return actor.requestWithdrawal(amount);
+      return actor.submitWithdrawalRequest(amount);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["currentUserProfile"] });
       qc.invalidateQueries({ queryKey: ["transactionHistory"] });
+      qc.invalidateQueries({ queryKey: ["callerWithdrawalRequests"] });
+    },
+  });
+}
+
+export function useSubmitDepositRequest() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      amount,
+      paymentMethod,
+      transactionReference,
+    }: {
+      amount: bigint;
+      paymentMethod: import("../backend.d").Variant_easyPaisa_jazzCash;
+      transactionReference: string;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.submitDepositRequest(amount, paymentMethod, transactionReference);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["callerDepositRequests"] });
+    },
+  });
+}
+
+export function useGetPaymentNumbers() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery({
+    queryKey: ["paymentNumbers"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getPaymentNumbers();
+    },
+    enabled: !!actor && !actorFetching,
+    retry: false,
+  });
+}
+
+export function useSetPaymentNumbers() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ jazzCash, easyPaisa }: { jazzCash: string; easyPaisa: string }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.setPaymentNumbers(jazzCash, easyPaisa);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["paymentNumbers"] });
+    },
+  });
+}
+
+export function useGetCallerDepositRequests() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery({
+    queryKey: ["callerDepositRequests"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getCallerDepositRequests();
+    },
+    enabled: !!actor && !actorFetching,
+    retry: false,
+  });
+}
+
+export function useGetCallerWithdrawalRequests() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery({
+    queryKey: ["callerWithdrawalRequests"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getCallerWithdrawalRequests();
+    },
+    enabled: !!actor && !actorFetching,
+    retry: false,
+  });
+}
+
+export function useGetAllDepositRequests() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery({
+    queryKey: ["allDepositRequests"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getAllDepositRequests();
+    },
+    enabled: !!actor && !actorFetching,
+    retry: false,
+  });
+}
+
+export function useGetAllWithdrawalRequests() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery({
+    queryKey: ["allWithdrawalRequests"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getAllWithdrawalRequests();
+    },
+    enabled: !!actor && !actorFetching,
+    retry: false,
+  });
+}
+
+export function useGetPendingDepositRequests() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery({
+    queryKey: ["pendingDepositRequests"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getPendingDepositRequests();
+    },
+    enabled: !!actor && !actorFetching,
+    retry: false,
+  });
+}
+
+export function useGetPendingWithdrawalRequests() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery({
+    queryKey: ["pendingWithdrawalRequests"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getPendingWithdrawalRequests();
+    },
+    enabled: !!actor && !actorFetching,
+    retry: false,
+  });
+}
+
+export function useApproveDepositRequest() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: bigint) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.approveDepositRequest(requestId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pendingDepositRequests"] });
+      qc.invalidateQueries({ queryKey: ["allDepositRequests"] });
+    },
+  });
+}
+
+export function useRejectDepositRequest() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: bigint) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.rejectDepositRequest(requestId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pendingDepositRequests"] });
+      qc.invalidateQueries({ queryKey: ["allDepositRequests"] });
+    },
+  });
+}
+
+export function useApproveWithdrawalRequest() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: bigint) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.approveWithdrawalRequest(requestId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pendingWithdrawalRequests"] });
+      qc.invalidateQueries({ queryKey: ["allWithdrawalRequests"] });
+    },
+  });
+}
+
+export function useRejectWithdrawalRequest() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: bigint) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.rejectWithdrawalRequest(requestId);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pendingWithdrawalRequests"] });
+      qc.invalidateQueries({ queryKey: ["allWithdrawalRequests"] });
     },
   });
 }
