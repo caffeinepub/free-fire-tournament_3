@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useLocalAuth } from "../hooks/useLocalAuth";
 import {
   useGetTournament,
   useGetLeaderboard,
@@ -15,12 +15,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
   Trophy,
-  Coins,
   Users,
   ChevronDown,
   ChevronUp,
   Medal,
+  Swords,
+  Clock,
+  Ban,
 } from "lucide-react";
+import { LCoinIcon } from "../components/game/LCoinIcon";
 import { toast } from "sonner";
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -178,6 +181,11 @@ function DetailsTab({
   totalSlots,
   rules,
   prizeDistribution,
+  selectedSlot,
+  setSelectedSlot,
+  joinMutation,
+  hasEnoughBalance,
+  isLoggedIn,
 }: {
   tournamentId: bigint;
   status: TournamentStatus;
@@ -185,39 +193,19 @@ function DetailsTab({
   totalSlots: bigint;
   rules: string;
   prizeDistribution: bigint[];
+  selectedSlot: bigint | null;
+  setSelectedSlot: (s: bigint | null) => void;
+  joinMutation: ReturnType<typeof useJoinTournament>;
+  hasEnoughBalance: boolean;
+  isLoggedIn: boolean;
 }) {
-  const { identity } = useInternetIdentity();
   const [rulesOpen, setRulesOpen] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<bigint | null>(null);
   const { data: takenSlots, isLoading: slotsLoading } = useGetTakenSlots(tournamentId);
-  const { data: userProfile } = useGetCallerUserProfile();
-  const joinMutation = useJoinTournament();
 
   const isActive = status === TournamentStatus.active;
-  const isLoggedIn = !!identity;
   const canJoin = isActive && isLoggedIn;
-  const hasEnoughBalance = userProfile ? userProfile.balance >= entryFee : false;
 
   const mySlot = null; // Would need per-user slot tracking from backend
-
-  const handleJoin = async () => {
-    if (!selectedSlot) {
-      toast.error("Select a slot first!");
-      return;
-    }
-    if (!hasEnoughBalance) {
-      toast.error("Insufficient balance to join");
-      return;
-    }
-    try {
-      await joinMutation.mutateAsync({ tournamentId, slotNumber: selectedSlot });
-      toast.success(`Joined slot #${selectedSlot}! Good luck!`);
-      setSelectedSlot(null);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to join tournament";
-      toast.error(msg);
-    }
-  };
 
   const rankColors = [
     "oklch(0.82 0.18 85)",
@@ -227,7 +215,7 @@ function DetailsTab({
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* Join section */}
+      {/* Slot Selection (only when active + logged in) */}
       {canJoin && (
         <div
           className="rounded-xl p-4 flex flex-col gap-3"
@@ -274,33 +262,6 @@ function DetailsTab({
               Selected
             </span>
           </div>
-
-          <Button
-            onClick={handleJoin}
-            disabled={!selectedSlot || joinMutation.isPending || !hasEnoughBalance}
-            className="w-full h-12 font-display font-bold text-base tracking-wider uppercase btn-glow"
-            style={{
-              background:
-                !selectedSlot || !hasEnoughBalance
-                  ? "oklch(0.3 0.02 240)"
-                  : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
-              color: !selectedSlot || !hasEnoughBalance ? "oklch(0.5 0.02 240)" : "oklch(0.08 0.01 240)",
-              border: "none",
-            }}
-          >
-            {joinMutation.isPending ? (
-              <span className="flex items-center gap-2">
-                <span className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: "oklch(0.08 0.01 240)", borderTopColor: "transparent" }} />
-                JOINING...
-              </span>
-            ) : !hasEnoughBalance ? (
-              "INSUFFICIENT BALANCE"
-            ) : !selectedSlot ? (
-              "SELECT A SLOT TO JOIN"
-            ) : (
-              `JOIN FOR ${entryFee.toString()} COINS`
-            )}
-          </Button>
         </div>
       )}
 
@@ -370,7 +331,7 @@ function DetailsTab({
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Coins className="w-3.5 h-3.5" style={{ color: "oklch(0.82 0.18 85)" }} />
+                    <LCoinIcon size={14} />
                     <span className="font-display font-bold text-sm" style={{ color: rankColor }}>
                       {prize.toString()}
                     </span>
@@ -418,14 +379,58 @@ export default function MatchDetailPage() {
   const { id } = useParams({ from: "/match/$id" });
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"details" | "leaderboard">("details");
+  const [selectedSlot, setSelectedSlot] = useState<bigint | null>(null);
+  const [isJoinAnimating, setIsJoinAnimating] = useState(false);
 
   const tournamentId = BigInt(id);
   const { data: tournament, isLoading } = useGetTournament(tournamentId);
   const { data: categories } = useGetCategories();
+  const { isAuthenticated } = useLocalAuth();
+  const { data: userProfile } = useGetCallerUserProfile();
+  const joinMutation = useJoinTournament();
 
   const categoryName = categories?.find(
     (c) => c.id === tournament?.categoryId
   )?.name ?? "";
+
+  const isActive = tournament?.status === TournamentStatus.active;
+  const isLoggedIn = isAuthenticated;
+  const hasEnoughBalance = userProfile && tournament
+    ? userProfile.balance >= tournament.entryFee
+    : false;
+
+  const handleJoin = async () => {
+    if (!isLoggedIn) {
+      toast.error("Please sign in to join");
+      return;
+    }
+    if (!isActive) {
+      toast.error(
+        tournament?.status === TournamentStatus.upcoming
+          ? "Tournament hasn't started yet"
+          : "Tournament has ended"
+      );
+      return;
+    }
+    if (!hasEnoughBalance) {
+      toast.error("Insufficient balance to join");
+      return;
+    }
+    if (!selectedSlot) {
+      // Switch to details tab and let user pick a slot
+      setActiveTab("details");
+      toast("Select a slot from the grid below to join!", { icon: "👇" });
+      return;
+    }
+    try {
+      await joinMutation.mutateAsync({ tournamentId, slotNumber: selectedSlot });
+      toast.success(`Joined slot #${selectedSlot}! Good luck!`);
+      setSelectedSlot(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to join tournament";
+      toast.error(msg);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -484,6 +489,16 @@ export default function MatchDetailPage() {
           border: "1px solid oklch(0.25 0.02 240)",
         }}
       >
+        {tournament.imageUrl && (
+          <div className="w-full rounded-lg overflow-hidden mb-3" style={{ height: "140px" }}>
+            <img
+              src={tournament.imageUrl}
+              alt={tournament.title}
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          </div>
+        )}
         {categoryName && (
           <span
             className="text-[10px] font-display font-bold px-2 py-0.5 rounded tracking-wider"
@@ -498,7 +513,7 @@ export default function MatchDetailPage() {
         )}
         <div className="grid grid-cols-3 gap-3 mt-3">
           <div className="flex flex-col items-center gap-1 p-2 rounded-lg" style={{ background: "oklch(0.09 0.01 240)" }}>
-            <Coins className="w-4 h-4 neon-text-orange" />
+            <LCoinIcon size={18} />
             <span className="text-[10px] font-body text-muted-foreground">Entry</span>
             <span className="text-sm font-display font-bold neon-text-orange">{tournament.entryFee.toString()}</span>
           </div>
@@ -516,6 +531,231 @@ export default function MatchDetailPage() {
               {tournament.slotsFilled.toString()}/{tournament.totalSlots.toString()}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* ── JOIN BUTTON (always visible above tabs) ─────────────────────── */}
+      <style>{`
+        @keyframes joinRingExpand {
+          0%   { transform: scale(1);   opacity: 0.85; }
+          100% { transform: scale(3.2); opacity: 0; }
+        }
+        @keyframes joinRay {
+          0%   { transform: scaleX(0); opacity: 1; }
+          60%  { opacity: 0.9; }
+          100% { transform: scaleX(1); opacity: 0; }
+        }
+        @keyframes joinFlash {
+          0%   { opacity: 0; }
+          25%  { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes joinSparkle {
+          0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0); opacity: 0; }
+        }
+        @keyframes joinGlowPulse {
+          0%, 100% { box-shadow: 0 0 20px oklch(0.60 0.22 145 / 0.45), 0 2px 8px oklch(0.40 0.20 145 / 0.4); }
+          50%       { box-shadow: 0 0 36px oklch(0.70 0.25 145 / 0.70), 0 0 60px oklch(0.60 0.22 145 / 0.30), 0 2px 8px oklch(0.40 0.20 145 / 0.4); }
+        }
+        @keyframes comingSoonPulse {
+          0%, 100% { opacity: 0.7; }
+          50%       { opacity: 1; }
+        }
+      `}</style>
+      <div className="px-4 pt-3 pb-0">
+        {/* Wrapper keeps overflow visible for the burst */}
+        <div style={{ position: "relative", isolation: "isolate" }}>
+
+          {/* ── Burst layer — uses a 0×0 anchor at true button center ── */}
+          {isJoinAnimating && (
+            <div
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+                zIndex: 50,
+                overflow: "visible",
+              }}
+            >
+              {/* Zero-size anchor at the exact center of the button */}
+              <div style={{ position: "absolute", top: "50%", left: "50%", width: 0, height: 0 }}>
+
+                {/* Expanding rings — centered on the anchor */}
+                {[
+                  { delay: 0,   thick: 2,   opacity: 0.85, w: 260, h: 48 },
+                  { delay: 120, thick: 1.6, opacity: 0.67, w: 260, h: 48 },
+                  { delay: 240, thick: 1.2, opacity: 0.49, w: 260, h: 48 },
+                  { delay: 360, thick: 0.8, opacity: 0.31, w: 260, h: 48 },
+                ].map(({ delay, thick, opacity, w, h }) => (
+                  <div
+                    key={`ring-${delay}`}
+                    style={{
+                      position: "absolute",
+                      width: `${w}px`,
+                      height: `${h}px`,
+                      top: `${-h / 2}px`,
+                      left: `${-w / 2}px`,
+                      borderRadius: "12px",
+                      border: `${thick}px solid oklch(0.72 0.26 145 / ${opacity})`,
+                      animation: `joinRingExpand 700ms ease-out ${delay}ms forwards`,
+                      transformOrigin: "center center",
+                    }}
+                  />
+                ))}
+
+                {/* Light rays radiating outward from anchor */}
+                {[0, 30, 60, 90, 120, 150, 210, 270, 330].map((angle, rayIdx) => {
+                  const len = 55 + (rayIdx % 3) * 20;
+                  const thick = rayIdx % 2 === 0 ? 2.5 : 1.5;
+                  const delayMs = 30 + rayIdx * 20;
+                  return (
+                    <div
+                      key={`ray-${angle}`}
+                      style={{
+                        position: "absolute",
+                        top: `${-thick / 2}px`,
+                        left: "0px",
+                        width: `${len}px`,
+                        height: `${thick}px`,
+                        borderRadius: "999px",
+                        background: `linear-gradient(90deg, oklch(0.75 0.27 145), transparent)`,
+                        transformOrigin: "0% 50%",
+                        transform: `rotate(${angle}deg) scaleX(0)`,
+                        animation: `joinRay 620ms ease-out ${delayMs}ms forwards`,
+                        boxShadow: `0 0 4px oklch(0.80 0.28 145 / 0.7)`,
+                      }}
+                    />
+                  );
+                })}
+
+                {/* Sparkle dots flying out from anchor */}
+                {[
+                  { angle: 45,  dist: 60 },
+                  { angle: 135, dist: 55 },
+                  { angle: 225, dist: 62 },
+                  { angle: 315, dist: 58 },
+                  { angle: 10,  dist: 48 },
+                  { angle: 170, dist: 50 },
+                ].map(({ angle, dist }, sparkIdx) => {
+                  const rad = (angle * Math.PI) / 180;
+                  const dx = Math.round(Math.cos(rad) * dist);
+                  const dy = Math.round(Math.sin(rad) * dist);
+                  const sz = sparkIdx % 2 === 0 ? 6 : 4;
+                  return (
+                    <div
+                      key={`spark-${angle}`}
+                      style={{
+                        position: "absolute",
+                        top: `${-sz / 2}px`,
+                        left: `${-sz / 2}px`,
+                        width: `${sz}px`,
+                        height: `${sz}px`,
+                        borderRadius: "50%",
+                        background: sparkIdx % 3 === 0 ? "#ffffff" : "oklch(0.85 0.25 145)",
+                        boxShadow: `0 0 6px 2px ${sparkIdx % 3 === 0 ? "#ffffffcc" : "oklch(0.80 0.28 145 / 0.9)"}`,
+                        // @ts-ignore -- CSS custom properties
+                        "--dx": `${dx}px`,
+                        "--dy": `${dy}px`,
+                        animation: `joinSparkle 700ms ease-out ${sparkIdx * 50}ms forwards`,
+                      } as React.CSSProperties}
+                    />
+                  );
+                })}
+
+              </div>{/* end anchor */}
+
+              {/* Centre flash — covers full button area */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "12px",
+                  background: "radial-gradient(ellipse at center, oklch(0.95 0.15 145 / 0.75) 0%, transparent 70%)",
+                  animation: "joinFlash 400ms ease-out 0ms forwards",
+                }}
+              />
+            </div>
+          )}
+
+          {/* ── The button itself — appearance changes per tournament status ── */}
+          {tournament.status === TournamentStatus.upcoming ? (
+            /* UPCOMING — grey "COMING SOON" */
+            <button
+              type="button"
+              onClick={handleJoin}
+              className="w-full h-12 rounded-xl font-display font-black text-base tracking-[0.2em] uppercase flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97]"
+              style={{
+                position: "relative",
+                zIndex: 1,
+                background: "linear-gradient(135deg, oklch(0.22 0.02 240), oklch(0.18 0.015 240))",
+                color: "oklch(0.55 0.04 240)",
+                border: "1px solid oklch(0.30 0.02 240)",
+                animation: "comingSoonPulse 2s ease-in-out infinite",
+              }}
+            >
+              <Clock className="w-4 h-4 shrink-0" />
+              COMING SOON
+            </button>
+          ) : tournament.status === TournamentStatus.completed ? (
+            /* COMPLETED — dark "ENDED" */
+            <button
+              type="button"
+              onClick={handleJoin}
+              className="w-full h-12 rounded-xl font-display font-black text-base tracking-[0.2em] uppercase flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97]"
+              style={{
+                position: "relative",
+                zIndex: 1,
+                background: "linear-gradient(135deg, oklch(0.16 0.015 240), oklch(0.13 0.01 240))",
+                color: "oklch(0.42 0.03 240)",
+                border: "1px solid oklch(0.24 0.015 240)",
+                cursor: "not-allowed",
+              }}
+            >
+              <Ban className="w-4 h-4 shrink-0" />
+              ENDED
+            </button>
+          ) : (
+            /* ACTIVE — green glowing JOIN */
+            <button
+              type="button"
+              onClick={() => {
+                if (!isJoinAnimating) {
+                  setIsJoinAnimating(true);
+                  setTimeout(() => setIsJoinAnimating(false), 820);
+                }
+                handleJoin();
+              }}
+              disabled={joinMutation.isPending}
+              className="w-full h-12 rounded-xl font-display font-black text-base tracking-[0.2em] uppercase transition-all duration-150 active:scale-[0.97] flex items-center justify-center gap-2"
+              style={{
+                position: "relative",
+                zIndex: 1,
+                background: joinMutation.isPending
+                  ? "oklch(0.45 0.15 145)"
+                  : "linear-gradient(135deg, oklch(0.60 0.22 145), oklch(0.52 0.20 150))",
+                color: "#ffffff",
+                animation: !joinMutation.isPending ? "joinGlowPulse 2.4s ease-in-out infinite" : undefined,
+                border: "1px solid oklch(0.68 0.22 145 / 0.5)",
+              }}
+            >
+              {joinMutation.isPending ? (
+                <>
+                  <span
+                    className="w-4 h-4 border-2 rounded-full animate-spin shrink-0"
+                    style={{ borderColor: "#ffffff", borderTopColor: "transparent" }}
+                  />
+                  JOINING...
+                </>
+              ) : (
+                <>
+                  <Swords className="w-4 h-4 shrink-0" />
+                  JOIN
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -544,6 +784,11 @@ export default function MatchDetailPage() {
           totalSlots={tournament.totalSlots}
           rules={tournament.rules}
           prizeDistribution={tournament.prizeDistribution}
+          selectedSlot={selectedSlot}
+          setSelectedSlot={setSelectedSlot}
+          joinMutation={joinMutation}
+          hasEnoughBalance={hasEnoughBalance}
+          isLoggedIn={isLoggedIn}
         />
       ) : (
         <LeaderboardTab tournamentId={tournament.id} />

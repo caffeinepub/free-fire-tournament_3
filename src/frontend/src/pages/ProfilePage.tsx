@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useLocalAuth } from "../hooks/useLocalAuth";
 import {
   useGetCallerUserProfile,
   useGetTransactionHistory,
@@ -23,10 +23,11 @@ import {
   Copy,
   CheckCheck,
 } from "lucide-react";
+import { LCoinIcon } from "../components/game/LCoinIcon";
 import { toast } from "sonner";
 
 export default function ProfilePage() {
-  const { identity, clear } = useInternetIdentity();
+  const { currentUser, logout } = useLocalAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { data: userProfile, isLoading: profileLoading, isError: profileError } = useGetCallerUserProfile();
@@ -38,18 +39,55 @@ export default function ProfilePage() {
   const [usernameInput, setUsernameInput] = useState("");
   const [idCopied, setIdCopied] = useState(false);
 
-  const handleCopyId = () => {
-    if (principal) {
-      navigator.clipboard.writeText(principal).then(() => {
-        setIdCopied(true);
-        toast.success("Principal ID copied!");
-        setTimeout(() => setIdCopied(false), 2000);
-      });
+  const legendId = userProfile?.legendId;
+  const legendIdDisplay = legendId && legendId > 0n ? `#${legendId.toString().padStart(4, '0')}` : "---";
+  const legendIdValue = legendId && legendId > 0n ? legendId.toString() : null;
+
+  const handleCopyId = async () => {
+    const valueToCopy = legendIdValue ?? legendIdDisplay;
+    if (!valueToCopy || valueToCopy === "---") {
+      toast.info("Legend ID not assigned yet");
+      return;
     }
+
+    // Method 1: Modern Clipboard API (requires HTTPS + user gesture)
+    try {
+      await navigator.clipboard.writeText(valueToCopy);
+      setIdCopied(true);
+      toast.success("Legend ID copied!");
+      setTimeout(() => setIdCopied(false), 2000);
+      return;
+    } catch {
+      // fall through to method 2
+    }
+
+    // Method 2: execCommand fallback (works on older/restricted browsers)
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = valueToCopy;
+      textarea.style.cssText = "position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;box-shadow:none;background:transparent;opacity:0;";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, valueToCopy.length);
+      const success = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      if (success) {
+        setIdCopied(true);
+        toast.success("Legend ID copied!");
+        setTimeout(() => setIdCopied(false), 2000);
+        return;
+      }
+    } catch {
+      // fall through to method 3
+    }
+
+    // Method 3: Show in prompt so user can manually select & copy
+    window.prompt("Long-press to copy your Legend ID:", valueToCopy);
   };
 
   const displayName =
-    userProfile?.fullName?.trim() || userProfile?.username?.trim() || "Unknown Player";
+    userProfile?.fullName?.trim() || userProfile?.inGameName?.trim() || userProfile?.username?.trim() || currentUser?.inGameName?.trim() || currentUser?.fullName?.trim() || currentUser?.email?.split("@")[0] || "Player";
 
   const initials = displayName
     .split(" ")
@@ -62,8 +100,8 @@ export default function ProfilePage() {
     (tx) => tx.txnType === TxnType.tournamentEntry
   ) ?? [];
 
-  const handleSignOut = async () => {
-    await clear();
+  const handleSignOut = () => {
+    logout();
     queryClient.clear();
     navigate({ to: "/" });
   };
@@ -92,10 +130,7 @@ export default function ProfilePage() {
     setUsernameInput("");
   };
 
-  const principal = identity?.getPrincipal().toString() ?? "";
-  const shortPrincipal = principal
-    ? `${principal.slice(0, 8)}...${principal.slice(-6)}`
-    : "";
+  // Keep for potential future use but Legend ID is the primary identifier shown
 
   // Profile loading state
   if (profileLoading) {
@@ -111,28 +146,10 @@ export default function ProfilePage() {
     );
   }
 
-  // Profile error state
-  if (profileError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3 p-4">
-        <Shield className="w-10 h-10" style={{ color: "oklch(0.45 0.02 240)" }} />
-        <p className="text-sm font-body text-center" style={{ color: "oklch(0.55 0.02 240)" }}>
-          Could not load profile. Please refresh the page.
-        </p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 rounded-lg text-sm font-display font-bold tracking-wider transition-colors"
-          style={{
-            background: "oklch(0.72 0.22 45 / 0.15)",
-            border: "1px solid oklch(0.72 0.22 45 / 0.4)",
-            color: "oklch(0.72 0.22 45)",
-          }}
-        >
-          REFRESH
-        </button>
-      </div>
-    );
+  // Profile error state — only show if truly failed and not just loading
+  if (profileError && !profileLoading) {
+    // Don't block — just render with fallback data from local session
+    // (fall through to main render below)
   }
 
   return (
@@ -236,9 +253,28 @@ export default function ProfilePage() {
           </span>
         )}
 
-        {/* Principal */}
-        <div className="flex flex-col items-center gap-1">
-          <p className="text-[10px] font-mono-game text-muted-foreground/60">{shortPrincipal}</p>
+        {/* Legend ID */}
+        <div className="flex flex-col items-center gap-2 w-full px-4">
+          <span className="text-[10px] font-display font-bold tracking-widest text-muted-foreground">
+            LEGEND ID
+          </span>
+          <div
+            className="rounded-xl px-5 py-2.5 flex items-center justify-center"
+            style={{
+              background: "oklch(0.72 0.22 45 / 0.08)",
+              border: "1px solid oklch(0.72 0.22 45 / 0.3)",
+            }}
+          >
+            <span
+              className="font-display font-bold text-2xl tracking-widest"
+              style={{
+                color: legendIdValue ? "oklch(0.82 0.22 55)" : "oklch(0.4 0.01 240)",
+                textShadow: legendIdValue ? "0 0 16px oklch(0.82 0.22 55 / 0.4)" : "none",
+              }}
+            >
+              {legendIdDisplay}
+            </span>
+          </div>
           <button
             type="button"
             onClick={handleCopyId}
@@ -250,7 +286,7 @@ export default function ProfilePage() {
             }}
           >
             {idCopied ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-            {idCopied ? "COPIED!" : "COPY MY ID"}
+            {idCopied ? "COPIED!" : "COPY LEGEND ID"}
           </button>
         </div>
 
@@ -260,10 +296,13 @@ export default function ProfilePage() {
             className="flex flex-col items-center gap-1 p-3 rounded-xl"
             style={{ background: "oklch(0.09 0.01 240)" }}
           >
-            <span className="neon-text-gold font-display font-bold text-xl">
-              {(userProfile?.balance ?? 0n).toString()}
-            </span>
-            <span className="text-[10px] font-body text-muted-foreground">COINS</span>
+            <div className="flex items-center gap-1">
+              <LCoinIcon size={26} />
+              <span className="neon-text-gold font-display font-bold text-xl">
+                {(userProfile?.balance ?? 0n).toString()}
+              </span>
+            </div>
+            <span className="text-[10px] font-body text-muted-foreground">LEGEND COINS</span>
           </div>
           <div
             className="flex flex-col items-center gap-1 p-3 rounded-xl"
@@ -355,7 +394,8 @@ export default function ProfilePage() {
                     })}
                   </p>
                 </div>
-                <span className="neon-text-red font-display font-bold text-sm">
+                <span className="neon-text-red font-display font-bold text-sm flex items-center gap-1">
+                  <LCoinIcon size={16} />
                   -{tx.amount.toString()}
                 </span>
               </div>

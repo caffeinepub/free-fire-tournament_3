@@ -16,7 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useInternetIdentity } from "../../hooks/useInternetIdentity";
+import { useLocalAuth } from "../../hooks/useLocalAuth";
 
 // ─── Field wrapper with icon ──────────────────────────────────────────────────
 function FieldRow({
@@ -117,7 +117,7 @@ function IconInput({
 // ─── Main Registration Form ───────────────────────────────────────────────────
 export default function ProfileSetup({ onComplete }: { onComplete: () => void }) {
   const registerMutation = useRegisterUser();
-  const { clear } = useInternetIdentity();
+  const { logout } = useLocalAuth();
 
   const [fullName, setFullName] = useState("");
   const [inGameName, setInGameName] = useState("");
@@ -161,8 +161,8 @@ export default function ProfileSetup({ onComplete }: { onComplete: () => void })
     }
   };
 
-  const handleGoBack = async () => {
-    await clear();
+  const handleGoBack = () => {
+    logout();
     window.location.reload();
   };
 

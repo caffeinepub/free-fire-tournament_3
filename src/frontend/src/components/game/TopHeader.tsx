@@ -1,11 +1,12 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useGetCallerUserProfile } from "../../hooks/useQueries";
-import { useInternetIdentity } from "../../hooks/useInternetIdentity";
-import { Coins, Flame } from "lucide-react";
+import { useLocalAuth } from "../../hooks/useLocalAuth";
+import { Flame } from "lucide-react";
+import { LCoinIcon } from "./LCoinIcon";
 
 export default function TopHeader() {
   const navigate = useNavigate();
-  const { identity } = useInternetIdentity();
+  const { isAuthenticated } = useLocalAuth();
   const { data: userProfile } = useGetCallerUserProfile();
 
   return (
@@ -33,7 +34,7 @@ export default function TopHeader() {
       </div>
 
       {/* Balance shortcut */}
-      {identity && (
+      {isAuthenticated && (
         <button
           type="button"
           onClick={() => navigate({ to: "/wallet" })}
@@ -43,7 +44,7 @@ export default function TopHeader() {
             border: "1px solid oklch(0.82 0.18 85 / 0.3)",
           }}
         >
-          <Coins className="w-3.5 h-3.5" style={{ color: "oklch(0.82 0.18 85)" }} />
+          <LCoinIcon size={22} />
           <span
             className="font-display font-bold text-sm"
             style={{ color: "oklch(0.82 0.18 85)" }}

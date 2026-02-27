@@ -24,7 +24,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Coins,
   ArrowUpRight,
   ArrowDownLeft,
   Swords,
@@ -38,6 +37,7 @@ import {
   XCircle,
   Smartphone,
 } from "lucide-react";
+import { LCoinIcon } from "../components/game/LCoinIcon";
 import { toast } from "sonner";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -245,7 +245,7 @@ export default function WalletPage() {
   if (profileError) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <Coins className="w-10 h-10 text-muted-foreground/40" />
+        <LCoinIcon size={40} className="opacity-40" />
         <p className="text-muted-foreground text-sm font-body">Could not load wallet. Please refresh.</p>
       </div>
     );
@@ -272,7 +272,7 @@ export default function WalletPage() {
           <Skeleton className="h-12 w-32 bg-muted/50 rounded" />
         ) : (
           <div className="flex items-end gap-2">
-            <Coins className="w-6 h-6 neon-text-gold mb-1" />
+            <LCoinIcon size={28} className="mb-1" />
             <span className="font-display font-bold text-5xl neon-text-gold">
               {(userProfile?.balance ?? 0n).toString()}
             </span>
@@ -357,9 +357,9 @@ export default function WalletPage() {
                     <div key={req.id.toString()} className="px-4 py-3 flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Coins className="w-3.5 h-3.5 neon-text-gold" />
+                          <LCoinIcon size={14} />
                           <span className="font-display font-bold text-sm neon-text-gold">
-                            +{req.amount.toString()} coins
+                            +{req.amount.toString()}
                           </span>
                         </div>
                         <StatusBadge status={req.status} />
@@ -427,9 +427,9 @@ export default function WalletPage() {
                     <div key={req.id.toString()} className="px-4 py-3 flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Coins className="w-3.5 h-3.5 neon-text-red" />
+                          <LCoinIcon size={14} />
                           <span className="font-display font-bold text-sm" style={{ color: "oklch(0.72 0.25 25)" }}>
-                            -{req.amount.toString()} coins
+                            -{req.amount.toString()}
                           </span>
                         </div>
                         <StatusBadge status={req.status} />
@@ -469,7 +469,7 @@ export default function WalletPage() {
           </div>
         ) : !transactions || transactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 gap-2">
-            <Coins className="w-8 h-8 text-muted-foreground/40" />
+            <LCoinIcon size={32} className="opacity-40" />
             <p className="text-muted-foreground text-sm font-body">No transactions yet</p>
           </div>
         ) : (
@@ -603,10 +603,11 @@ export default function WalletPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
-            <p className="text-sm font-body text-muted-foreground">
+            <p className="text-sm font-body text-muted-foreground flex items-center gap-1.5 flex-wrap">
               Available:{" "}
-              <span className="neon-text-gold font-display font-bold">
-                {(userProfile?.balance ?? 0n).toString()} coins
+              <span className="neon-text-gold font-display font-bold flex items-center gap-1">
+                <LCoinIcon size={14} />
+                {(userProfile?.balance ?? 0n).toString()}
               </span>
             </p>
             <Input

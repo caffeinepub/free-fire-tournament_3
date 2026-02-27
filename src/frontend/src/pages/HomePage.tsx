@@ -3,7 +3,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { useGetTournaments, useGetCategories } from "../hooks/useQueries";
 import { TournamentStatus } from "../backend.d";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Coins, Trophy, Users, Flame } from "lucide-react";
+import { Trophy, Users, Flame } from "lucide-react";
+import { LCoinIcon } from "../components/game/LCoinIcon";
+import { InstallBanner } from "../components/game/InstallBanner";
 
 function StatusBadge({ status }: { status: TournamentStatus }) {
   const config = {
@@ -83,6 +85,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-full">
+      <InstallBanner />
       {/* Category tabs */}
       <div className="sticky top-0 z-10 px-3 py-3" style={{ background: "oklch(0.08 0.01 240)" }}>
         <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
@@ -135,6 +138,16 @@ export default function HomePage() {
                   className="card-glass card-glow-hover rounded-xl p-3 flex flex-col gap-2 cursor-pointer active:scale-95 transition-transform duration-100 text-left w-full"
                   onClick={() => handleTournamentClick(tournament.id)}
                 >
+                  {tournament.imageUrl && (
+                    <div className="w-full rounded-lg overflow-hidden" style={{ height: "90px" }}>
+                      <img
+                        src={tournament.imageUrl}
+                        alt={tournament.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    </div>
+                  )}
                   {/* Header */}
                   <div className="flex items-start justify-between gap-1">
                     <StatusBadge status={tournament.status} />
@@ -157,7 +170,7 @@ export default function HomePage() {
 
                   {/* Entry fee */}
                   <div className="flex items-center gap-1">
-                    <Coins className="w-3.5 h-3.5 neon-text-orange shrink-0" />
+                    <LCoinIcon size={16} />
                     <span className="text-xs font-body text-muted-foreground">Entry:</span>
                     <span className="text-xs font-display font-bold neon-text-orange">
                       {tournament.entryFee.toString()}

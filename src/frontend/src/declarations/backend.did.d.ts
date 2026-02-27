@@ -27,6 +27,7 @@ export interface ExtendedUserProfile {
   'inGameName' : string,
   'username' : string,
   'balance' : bigint,
+  'legendId' : bigint,
   'referCode' : string,
   'mobileNo' : string,
   'fullName' : string,
@@ -52,6 +53,7 @@ export interface Tournament {
   'status' : TournamentStatus,
   'prizeDistribution' : Array<bigint>,
   'title' : string,
+  'imageUrl' : string,
   'totalSlots' : bigint,
   'entryFee' : bigint,
   'slotsFilled' : bigint,
@@ -85,12 +87,13 @@ export interface WithdrawalRequest {
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addCoins' : ActorMethod<[Principal, bigint], undefined>,
+  'addCoinsByLegendId' : ActorMethod<[bigint, bigint], undefined>,
   'approveDepositRequest' : ActorMethod<[bigint], undefined>,
   'approveWithdrawalRequest' : ActorMethod<[bigint], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createCategory' : ActorMethod<[string], undefined>,
   'createTournament' : ActorMethod<
-    [string, bigint, bigint, bigint, bigint, string, Array<bigint>],
+    [string, bigint, bigint, bigint, bigint, string, Array<bigint>, string],
     undefined
   >,
   'getAllDepositRequests' : ActorMethod<[], Array<DepositRequest>>,
@@ -106,22 +109,44 @@ export interface _SERVICE {
   'getPaymentNumbers' : ActorMethod<[], PaymentNumbers>,
   'getPendingDepositRequests' : ActorMethod<[], Array<DepositRequest>>,
   'getPendingWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
+  'getResetCode' : ActorMethod<[], string>,
   'getTakenSlots' : ActorMethod<[bigint], Array<bigint>>,
   'getTournament' : ActorMethod<[bigint], [] | [Tournament]>,
   'getTournaments' : ActorMethod<[], Array<Tournament>>,
   'getTransactionHistory' : ActorMethod<[], Array<Transaction>>,
+  'getUserByLegendId' : ActorMethod<
+    [bigint],
+    [] | [[Principal, ExtendedUserProfile]]
+  >,
   'getUserProfile' : ActorMethod<[Principal], [] | [ExtendedUserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'joinTournament' : ActorMethod<[bigint, bigint], undefined>,
+  'login' : ActorMethod<
+    [string, string],
+    { 'ok' : ExtendedUserProfile } |
+      { 'err' : string }
+  >,
   'postScores' : ActorMethod<[bigint, Array<[Principal, bigint]>], undefined>,
+  'registerAccount' : ActorMethod<
+    [string, string, string, string, string, string, string],
+    { 'ok' : null } |
+      { 'err' : string }
+  >,
   'registerUser' : ActorMethod<
     [string, string, string, string, string, string],
     undefined
   >,
   'rejectDepositRequest' : ActorMethod<[bigint], undefined>,
   'rejectWithdrawalRequest' : ActorMethod<[bigint], undefined>,
+  'removeCoinsByLegendId' : ActorMethod<[bigint, bigint], undefined>,
+  'resetPassword' : ActorMethod<
+    [string, string, string],
+    { 'ok' : null } |
+      { 'err' : string }
+  >,
   'saveCallerUserProfile' : ActorMethod<[ExtendedUserProfile], undefined>,
   'setPaymentNumbers' : ActorMethod<[string, string], undefined>,
+  'setResetCode' : ActorMethod<[string], undefined>,
   'setUsername' : ActorMethod<[string], undefined>,
   'submitDepositRequest' : ActorMethod<
     [bigint, { 'easyPaisa' : null } | { 'jazzCash' : null }, string],

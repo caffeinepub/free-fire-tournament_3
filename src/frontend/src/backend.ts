@@ -105,6 +105,7 @@ export interface ExtendedUserProfile {
     inGameName: string;
     username: string;
     balance: bigint;
+    legendId: bigint;
     referCode: string;
     mobileNo: string;
     fullName: string;
@@ -124,6 +125,7 @@ export interface Tournament {
     status: TournamentStatus;
     prizeDistribution: Array<bigint>;
     title: string;
+    imageUrl: string;
     totalSlots: bigint;
     entryFee: bigint;
     slotsFilled: bigint;
@@ -181,11 +183,12 @@ export enum Variant_pending_approved_rejected {
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     addCoins(user: Principal, amount: bigint): Promise<void>;
+    addCoinsByLegendId(legendId: bigint, amount: bigint): Promise<void>;
     approveDepositRequest(requestId: bigint): Promise<void>;
     approveWithdrawalRequest(requestId: bigint): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCategory(name: string): Promise<void>;
-    createTournament(title: string, categoryId: bigint, entryFee: bigint, prizePool: bigint, totalSlots: bigint, rules: string, prizeDistribution: Array<bigint>): Promise<void>;
+    createTournament(title: string, categoryId: bigint, entryFee: bigint, prizePool: bigint, totalSlots: bigint, rules: string, prizeDistribution: Array<bigint>, imageUrl: string): Promise<void>;
     getAllDepositRequests(): Promise<Array<DepositRequest>>;
     getAllUsers(): Promise<Array<[Principal, ExtendedUserProfile]>>;
     getAllWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
@@ -199,19 +202,44 @@ export interface backendInterface {
     getPaymentNumbers(): Promise<PaymentNumbers>;
     getPendingDepositRequests(): Promise<Array<DepositRequest>>;
     getPendingWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
+    getResetCode(): Promise<string>;
     getTakenSlots(tournamentId: bigint): Promise<Array<bigint>>;
     getTournament(id: bigint): Promise<Tournament | null>;
     getTournaments(): Promise<Array<Tournament>>;
     getTransactionHistory(): Promise<Array<Transaction>>;
+    getUserByLegendId(legendId: bigint): Promise<[Principal, ExtendedUserProfile] | null>;
     getUserProfile(user: Principal): Promise<ExtendedUserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     joinTournament(tournamentId: bigint, slotNumber: bigint): Promise<void>;
+    login(email: string, passwordHash: string): Promise<{
+        __kind__: "ok";
+        ok: ExtendedUserProfile;
+    } | {
+        __kind__: "err";
+        err: string;
+    }>;
     postScores(tournamentId: bigint, scores: Array<[Principal, bigint]>): Promise<void>;
+    registerAccount(email: string, passwordHash: string, fullName: string, inGameName: string, gameUID: string, mobileNo: string, referCode: string): Promise<{
+        __kind__: "ok";
+        ok: null;
+    } | {
+        __kind__: "err";
+        err: string;
+    }>;
     registerUser(fullName: string, inGameName: string, gameUID: string, mobileNo: string, email: string, referCode: string): Promise<void>;
     rejectDepositRequest(requestId: bigint): Promise<void>;
     rejectWithdrawalRequest(requestId: bigint): Promise<void>;
+    removeCoinsByLegendId(legendId: bigint, amount: bigint): Promise<void>;
+    resetPassword(email: string, resetCode: string, newPasswordHash: string): Promise<{
+        __kind__: "ok";
+        ok: null;
+    } | {
+        __kind__: "err";
+        err: string;
+    }>;
     saveCallerUserProfile(profile: ExtendedUserProfile): Promise<void>;
     setPaymentNumbers(jazzCash: string, easyPaisa: string): Promise<void>;
+    setResetCode(code: string): Promise<void>;
     setUsername(username: string): Promise<void>;
     submitDepositRequest(amount: bigint, paymentMethod: Variant_easyPaisa_jazzCash, transactionReference: string): Promise<bigint>;
     submitWithdrawalRequest(amount: bigint): Promise<bigint>;
@@ -245,6 +273,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.addCoins(arg0, arg1);
+            return result;
+        }
+    }
+    async addCoinsByLegendId(arg0: bigint, arg1: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addCoinsByLegendId(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addCoinsByLegendId(arg0, arg1);
             return result;
         }
     }
@@ -304,17 +346,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async createTournament(arg0: string, arg1: bigint, arg2: bigint, arg3: bigint, arg4: bigint, arg5: string, arg6: Array<bigint>): Promise<void> {
+    async createTournament(arg0: string, arg1: bigint, arg2: bigint, arg3: bigint, arg4: bigint, arg5: string, arg6: Array<bigint>, arg7: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.createTournament(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                const result = await this.actor.createTournament(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createTournament(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            const result = await this.actor.createTournament(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
             return result;
         }
     }
@@ -500,6 +542,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n8(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getResetCode(): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getResetCode();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getResetCode();
+            return result;
+        }
+    }
     async getTakenSlots(arg0: bigint): Promise<Array<bigint>> {
         if (this.processError) {
             try {
@@ -556,6 +612,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n20(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getUserByLegendId(arg0: bigint): Promise<[Principal, ExtendedUserProfile] | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getUserByLegendId(arg0);
+                return from_candid_opt_n24(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getUserByLegendId(arg0);
+            return from_candid_opt_n24(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async getUserProfile(arg0: Principal): Promise<ExtendedUserProfile | null> {
         if (this.processError) {
             try {
@@ -598,6 +668,26 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async login(arg0: string, arg1: string): Promise<{
+        __kind__: "ok";
+        ok: ExtendedUserProfile;
+    } | {
+        __kind__: "err";
+        err: string;
+    }> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.login(arg0, arg1);
+                return from_candid_variant_n25(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.login(arg0, arg1);
+            return from_candid_variant_n25(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async postScores(arg0: bigint, arg1: Array<[Principal, bigint]>): Promise<void> {
         if (this.processError) {
             try {
@@ -610,6 +700,26 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.postScores(arg0, arg1);
             return result;
+        }
+    }
+    async registerAccount(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string): Promise<{
+        __kind__: "ok";
+        ok: null;
+    } | {
+        __kind__: "err";
+        err: string;
+    }> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.registerAccount(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                return from_candid_variant_n26(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.registerAccount(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            return from_candid_variant_n26(this._uploadFile, this._downloadFile, result);
         }
     }
     async registerUser(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string): Promise<void> {
@@ -654,6 +764,40 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async removeCoinsByLegendId(arg0: bigint, arg1: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.removeCoinsByLegendId(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.removeCoinsByLegendId(arg0, arg1);
+            return result;
+        }
+    }
+    async resetPassword(arg0: string, arg1: string, arg2: string): Promise<{
+        __kind__: "ok";
+        ok: null;
+    } | {
+        __kind__: "err";
+        err: string;
+    }> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.resetPassword(arg0, arg1, arg2);
+                return from_candid_variant_n26(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.resetPassword(arg0, arg1, arg2);
+            return from_candid_variant_n26(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async saveCallerUserProfile(arg0: ExtendedUserProfile): Promise<void> {
         if (this.processError) {
             try {
@@ -682,6 +826,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async setResetCode(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.setResetCode(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.setResetCode(arg0);
+            return result;
+        }
+    }
     async setUsername(arg0: string): Promise<void> {
         if (this.processError) {
             try {
@@ -699,14 +857,14 @@ export class Backend implements backendInterface {
     async submitDepositRequest(arg0: bigint, arg1: Variant_easyPaisa_jazzCash, arg2: string): Promise<bigint> {
         if (this.processError) {
             try {
-                const result = await this.actor.submitDepositRequest(arg0, to_candid_variant_n24(this._uploadFile, this._downloadFile, arg1), arg2);
+                const result = await this.actor.submitDepositRequest(arg0, to_candid_variant_n27(this._uploadFile, this._downloadFile, arg1), arg2);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.submitDepositRequest(arg0, to_candid_variant_n24(this._uploadFile, this._downloadFile, arg1), arg2);
+            const result = await this.actor.submitDepositRequest(arg0, to_candid_variant_n27(this._uploadFile, this._downloadFile, arg1), arg2);
             return result;
         }
     }
@@ -763,6 +921,9 @@ function from_candid_opt_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
 function from_candid_opt_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Tournament]): Tournament | null {
     return value.length === 0 ? null : from_candid_Tournament_n15(_uploadFile, _downloadFile, value[0]);
 }
+function from_candid_opt_n24(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [[Principal, _ExtendedUserProfile]]): [Principal, ExtendedUserProfile] | null {
+    return value.length === 0 ? null : value[0];
+}
 function from_candid_record_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     id: bigint;
     status: {
@@ -796,6 +957,7 @@ function from_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promise<Uin
     status: _TournamentStatus;
     prizeDistribution: Array<bigint>;
     title: string;
+    imageUrl: string;
     totalSlots: bigint;
     entryFee: bigint;
     slotsFilled: bigint;
@@ -807,6 +969,7 @@ function from_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promise<Uin
     status: TournamentStatus;
     prizeDistribution: Array<bigint>;
     title: string;
+    imageUrl: string;
     totalSlots: bigint;
     entryFee: bigint;
     slotsFilled: bigint;
@@ -819,6 +982,7 @@ function from_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promise<Uin
         status: from_candid_TournamentStatus_n17(_uploadFile, _downloadFile, value.status),
         prizeDistribution: value.prizeDistribution,
         title: value.title,
+        imageUrl: value.imageUrl,
         totalSlots: value.totalSlots,
         entryFee: value.entryFee,
         slotsFilled: value.slotsFilled,
@@ -917,6 +1081,44 @@ function from_candid_variant_n23(_uploadFile: (file: ExternalBlob) => Promise<Ui
 }): Variant_deposit_withdrawal_tournamentEntry {
     return "deposit" in value ? Variant_deposit_withdrawal_tournamentEntry.deposit : "withdrawal" in value ? Variant_deposit_withdrawal_tournamentEntry.withdrawal : "tournamentEntry" in value ? Variant_deposit_withdrawal_tournamentEntry.tournamentEntry : value;
 }
+function from_candid_variant_n25(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    ok: _ExtendedUserProfile;
+} | {
+    err: string;
+}): {
+    __kind__: "ok";
+    ok: ExtendedUserProfile;
+} | {
+    __kind__: "err";
+    err: string;
+} {
+    return "ok" in value ? {
+        __kind__: "ok",
+        ok: value.ok
+    } : "err" in value ? {
+        __kind__: "err",
+        err: value.err
+    } : value;
+}
+function from_candid_variant_n26(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    ok: null;
+} | {
+    err: string;
+}): {
+    __kind__: "ok";
+    ok: null;
+} | {
+    __kind__: "err";
+    err: string;
+} {
+    return "ok" in value ? {
+        __kind__: "ok",
+        ok: value.ok
+    } : "err" in value ? {
+        __kind__: "err",
+        err: value.err
+    } : value;
+}
 function from_candid_variant_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     pending: null;
 } | {
@@ -963,7 +1165,7 @@ function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         guest: null
     } : value;
 }
-function to_candid_variant_n24(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Variant_easyPaisa_jazzCash): {
+function to_candid_variant_n27(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Variant_easyPaisa_jazzCash): {
     easyPaisa: null;
 } | {
     jazzCash: null;

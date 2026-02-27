@@ -1,8 +1,10 @@
-import { Trophy } from "lucide-react";
+import { Trophy, Swords } from "lucide-react";
+import { LCoinIcon } from "../components/game/LCoinIcon";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGetGlobalLeaderboard } from "../hooks/useQueries";
 import type { GlobalLeaderboardEntry } from "../backend.d";
+import { useNavigate } from "@tanstack/react-router";
 
 // ─── Rank Badge ───────────────────────────────────────────────────────────────
 
@@ -111,10 +113,11 @@ function LeaderboardRow({ entry, rank }: { entry: GlobalLeaderboardEntry; rank: 
           {Number(entry.totalScore).toLocaleString()} pts
         </span>
         <span
-          className="text-xs font-medium"
+          className="text-xs font-medium flex items-center gap-1"
           style={{ color: "oklch(0.72 0.20 145)" }}
         >
-          {Number(entry.totalWinnings).toLocaleString()} 🪙
+          <LCoinIcon size={13} />
+          {Number(entry.totalWinnings).toLocaleString()}
         </span>
       </div>
     </div>
@@ -150,6 +153,7 @@ function SkeletonRows() {
 
 export default function LeaderboardPage() {
   const { data: entries, isLoading, isError } = useGetGlobalLeaderboard();
+  const navigate = useNavigate();
 
   const topHundred = (entries ?? []).slice(0, 100);
 
@@ -158,6 +162,24 @@ export default function LeaderboardPage() {
       className="min-h-full flex flex-col"
       style={{ background: "oklch(0.09 0.015 240)" }}
     >
+      {/* ── GREEN JOIN BUTTON ─────────────────────────────────────── */}
+      <div className="px-4 pt-4 pb-0">
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/" })}
+          className="w-full h-12 rounded-xl font-display font-black text-base tracking-[0.2em] uppercase transition-all duration-150 active:scale-[0.97] flex items-center justify-center gap-2"
+          style={{
+            background: "linear-gradient(135deg, oklch(0.60 0.22 145), oklch(0.52 0.20 150))",
+            color: "#ffffff",
+            boxShadow: "0 0 20px oklch(0.60 0.22 145 / 0.45), 0 2px 8px oklch(0.40 0.20 145 / 0.4)",
+            border: "1px solid oklch(0.68 0.22 145 / 0.5)",
+          }}
+        >
+          <Swords className="w-4 h-4 shrink-0" />
+          JOIN A TOURNAMENT
+        </button>
+      </div>
+
       {/* Header */}
       <div
         className="px-4 pt-5 pb-4 text-center relative overflow-hidden"

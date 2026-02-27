@@ -7,8 +7,8 @@ import {
 } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
-import { useInternetIdentity } from "./hooks/useInternetIdentity";
-import { useGetCallerUserProfile } from "./hooks/useQueries";
+import { useLocalAuth } from "./hooks/useLocalAuth";
+import { useQueryClient } from "@tanstack/react-query";
 import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
 import MatchDetailPage from "./pages/MatchDetailPage";
@@ -18,19 +18,13 @@ import AdminPage from "./pages/AdminPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import TopHeader from "./components/game/TopHeader";
 import BottomNav from "./components/game/BottomNav";
-import ProfileSetup from "./components/game/ProfileSetup";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // ─── Root Layout ──────────────────────────────────────────────────────────────
 
 function RootLayout() {
-  const { identity, isInitializing } = useInternetIdentity();
-  const {
-    data: userProfile,
-    isLoading: profileLoading,
-    isFetched: profileFetched,
-    isError: profileError,
-  } = useGetCallerUserProfile();
+  const { isAuthenticated, isInitializing } = useLocalAuth();
+  const queryClient = useQueryClient();
 
   // Timeout-based forced show: after 5s always show content no matter what
   const [forceShow, setForceShow] = useState(false);
@@ -45,7 +39,14 @@ function RootLayout() {
     };
   }, []);
 
-  const isAuthenticated = !!identity;
+  // Network recovery: refetch all queries when device comes back online
+  useEffect(() => {
+    const handleOnline = () => {
+      queryClient.refetchQueries();
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [queryClient]);
 
   // Show loading screen while initializing auth
   if (isInitializing) {
@@ -74,14 +75,6 @@ function RootLayout() {
     );
   }
 
-  // Show content: not loading, OR error occurred, OR fetch completed, OR timeout hit
-  // Both useGetCallerUserProfile (4s) AND forceShow (5s) timeouts ensure we never get stuck
-  const showContent = !profileLoading || !!profileError || profileFetched || forceShow;
-
-  // Show profile setup only when we know profile is definitively null (not just loading)
-  const showProfileSetup =
-    isAuthenticated && showContent && !profileError && profileFetched && userProfile === null;
-
   return (
     <div className="gradient-bg min-h-dvh">
       {/* App shell */}
@@ -95,7 +88,7 @@ function RootLayout() {
           className="flex-1 overflow-y-auto"
           style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom, 8px))" }}
         >
-          {!showContent ? (
+          {!forceShow && slowWarning ? (
             <div className="flex flex-col gap-3 p-4 animate-pulse">
               <Skeleton className="h-8 w-1/2 bg-muted/50 rounded" />
               <div className="grid grid-cols-2 gap-3">
@@ -103,11 +96,9 @@ function RootLayout() {
                   <Skeleton key={i} className="h-32 bg-muted/50 rounded-xl" />
                 ))}
               </div>
-              {slowWarning && (
-                <p className="text-center text-xs text-muted-foreground/60 mt-2 animate-fade-in">
-                  Taking longer than usual...
-                </p>
-              )}
+              <p className="text-center text-xs text-muted-foreground/60 mt-2 animate-fade-in">
+                Taking longer than usual...
+              </p>
             </div>
           ) : (
             <Outlet />
@@ -116,11 +107,6 @@ function RootLayout() {
 
         <BottomNav />
       </div>
-
-      {/* Profile setup modal */}
-      {showProfileSetup && (
-        <ProfileSetup onComplete={() => {}} />
-      )}
 
       <Toaster />
     </div>

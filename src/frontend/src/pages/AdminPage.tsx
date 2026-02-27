@@ -17,6 +17,11 @@ import {
   useApproveWithdrawalRequest,
   useRejectWithdrawalRequest,
   useGetAllUsers,
+  useGetResetCode,
+  useSetResetCode,
+  useAddCoinsByLegendId,
+  useRemoveCoinsByLegendId,
+  useGetUserByLegendId,
 } from "../hooks/useQueries";
 import { UserRole, Variant_easyPaisa_jazzCash } from "../backend.d";
 import { Button } from "@/components/ui/button";
@@ -30,7 +35,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Plus, Shield, Swords, Users, Coins, Star, CreditCard, ArrowDownLeft, ArrowUpRight, Clock, User, Mail, Phone, Gamepad2, Hash } from "lucide-react";
+import { ArrowLeft, Plus, Shield, Swords, Users, Star, CreditCard, ArrowDownLeft, ArrowUpRight, Clock, Mail, Phone, Gamepad2, Hash, KeyRound } from "lucide-react";
+import { LCoinIcon } from "../components/game/LCoinIcon";
+
+// Wrapper so LCoinIcon can be passed as a React component type to SectionCard
+function LCoinSectionIcon({ className: _className }: { className?: string }) {
+  return <LCoinIcon size={16} />;
+}
 import { toast } from "sonner";
 import { Principal } from "@icp-sdk/core/principal";
 
@@ -74,6 +85,7 @@ export default function AdminPage() {
   const { data: pendingDeposits, isLoading: depositLoading } = useGetPendingDepositRequests();
   const { data: pendingWithdrawals, isLoading: withdrawalLoading } = useGetPendingWithdrawalRequests();
   const { data: allUsers, isLoading: usersLoading } = useGetAllUsers();
+  const { data: currentResetCode } = useGetResetCode();
 
   const createCategoryMutation = useCreateCategory();
   const createTournamentMutation = useCreateTournament();
@@ -81,13 +93,20 @@ export default function AdminPage() {
   const assignRoleMutation = useAssignCallerUserRole();
   const addCoinsMutation = useAddCoins();
   const setPaymentNumbersMutation = useSetPaymentNumbers();
+  const setResetCodeMutation = useSetResetCode();
   const approveDepositMutation = useApproveDepositRequest();
   const rejectDepositMutation = useRejectDepositRequest();
   const approveWithdrawalMutation = useApproveWithdrawalRequest();
   const rejectWithdrawalMutation = useRejectWithdrawalRequest();
+  const addCoinsByLegendIdMutation = useAddCoinsByLegendId();
+  const removeCoinsByLegendIdMutation = useRemoveCoinsByLegendId();
+  const getUserByLegendIdMutation = useGetUserByLegendId();
 
   // Payment Numbers
   const [pJazzCash, setPJazzCash] = useState("");
+
+  // Reset Code
+  const [newResetCode, setNewResetCode] = useState("");
 
   // Create Category
   const [catName, setCatName] = useState("");
@@ -100,6 +119,7 @@ export default function AdminPage() {
   const [tTotalSlots, setTTotalSlots] = useState("");
   const [tRules, setTRules] = useState("");
   const [tPrizeDist, setTPrizeDist] = useState("");
+  const [tImageUrl, setTImageUrl] = useState("");
 
   // Post Scores
   const [sTournamentId, setSTournamentId] = useState("");
@@ -109,9 +129,15 @@ export default function AdminPage() {
   const [rPrincipal, setRPrincipal] = useState("");
   const [rRole, setRRole] = useState<UserRole>(UserRole.user);
 
-  // Add Coins
+  // Add Coins (by Principal)
   const [cPrincipal, setCPrincipal] = useState("");
   const [cAmount, setCAmount] = useState("");
+
+  // Manage by Legend ID
+  const [legendIdInput, setLegendIdInput] = useState("");
+  const [legendIdSearchResult, setLegendIdSearchResult] = useState<[import("@icp-sdk/core/principal").Principal, import("../backend.d").ExtendedUserProfile] | null>(null);
+  const [legendIdNotFound, setLegendIdNotFound] = useState(false);
+  const [legendIdCoinAmount, setLegendIdCoinAmount] = useState("");
 
   if (adminLoading) {
     return (
@@ -184,10 +210,11 @@ export default function AdminPage() {
         totalSlots: BigInt(tTotalSlots),
         rules: tRules,
         prizeDistribution: prizeDistArr,
+        imageUrl: tImageUrl,
       });
       toast.success("Tournament created!");
       setTTitle(""); setTCategoryId(""); setTEntryFee(""); setTPrizePool("");
-      setTTotalSlots(""); setTRules(""); setTPrizeDist("");
+      setTTotalSlots(""); setTRules(""); setTPrizeDist(""); setTImageUrl("");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
@@ -232,6 +259,67 @@ export default function AdminPage() {
       });
       toast.success(`Added ${cAmount} coins!`);
       setCPrincipal(""); setCAmount("");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const handleLookupByLegendId = async () => {
+    if (!legendIdInput.trim()) { toast.error("Enter a Legend ID"); return; }
+    try {
+      const result = await getUserByLegendIdMutation.mutateAsync(BigInt(legendIdInput.trim()));
+      if (result) {
+        setLegendIdSearchResult(result);
+        setLegendIdNotFound(false);
+      } else {
+        setLegendIdSearchResult(null);
+        setLegendIdNotFound(true);
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Lookup failed");
+    }
+  };
+
+  const handleAddCoinsByLegendId = async () => {
+    if (!legendIdInput.trim() || !legendIdCoinAmount) { toast.error("Enter Legend ID and amount"); return; }
+    try {
+      await addCoinsByLegendIdMutation.mutateAsync({
+        legendId: BigInt(legendIdInput.trim()),
+        amount: BigInt(legendIdCoinAmount),
+      });
+      toast.success(`Added ${legendIdCoinAmount} coins to #${legendIdInput.padStart(4, '0')}!`);
+      setLegendIdCoinAmount("");
+      // Refresh the lookup result
+      const refreshed = await getUserByLegendIdMutation.mutateAsync(BigInt(legendIdInput.trim()));
+      if (refreshed) setLegendIdSearchResult(refreshed);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add coins");
+    }
+  };
+
+  const handleRemoveCoinsByLegendId = async () => {
+    if (!legendIdInput.trim() || !legendIdCoinAmount) { toast.error("Enter Legend ID and amount"); return; }
+    try {
+      await removeCoinsByLegendIdMutation.mutateAsync({
+        legendId: BigInt(legendIdInput.trim()),
+        amount: BigInt(legendIdCoinAmount),
+      });
+      toast.success(`Removed ${legendIdCoinAmount} coins from #${legendIdInput.padStart(4, '0')}!`);
+      setLegendIdCoinAmount("");
+      // Refresh the lookup result
+      const refreshed = await getUserByLegendIdMutation.mutateAsync(BigInt(legendIdInput.trim()));
+      if (refreshed) setLegendIdSearchResult(refreshed);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove coins");
+    }
+  };
+
+  const handleSetResetCode = async () => {
+    if (!newResetCode.trim()) { toast.error("Enter a reset code"); return; }
+    try {
+      await setResetCodeMutation.mutateAsync(newResetCode.trim());
+      toast.success("Reset code saved!");
+      setNewResetCode("");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
@@ -357,6 +445,208 @@ export default function AdminPage() {
           </Button>
         </SectionCard>
 
+        {/* Reset Code */}
+        <SectionCard title="RESET CODE" icon={KeyRound}>
+          {currentResetCode && (
+            <div
+              className="rounded-xl p-3 flex flex-col gap-1.5"
+              style={{ background: "oklch(0.72 0.22 45 / 0.08)", border: "1px solid oklch(0.72 0.22 45 / 0.2)" }}
+            >
+              <p className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">CURRENT CODE</p>
+              <p className="font-mono-game text-sm" style={{ color: "oklch(0.9 0.01 240)" }}>
+                {currentResetCode}
+              </p>
+            </div>
+          )}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="reset-code-input" className="text-xs font-display text-muted-foreground tracking-wider">NEW RESET CODE</label>
+            <Input
+              id="reset-code-input"
+              placeholder="Enter a secret reset code..."
+              value={newResetCode}
+              onChange={(e) => setNewResetCode(e.target.value)}
+              style={inputStyle}
+              className="h-10 font-mono-game text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground font-body mt-0.5">
+              Share this code with users who forgot their password.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={handleSetResetCode}
+            disabled={setResetCodeMutation.isPending}
+            className="font-display font-bold tracking-wider h-10"
+            style={{
+              background: "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+              color: "oklch(0.08 0.01 240)",
+              border: "none",
+            }}
+          >
+            {setResetCodeMutation.isPending ? "Saving..." : "SAVE RESET CODE"}
+          </Button>
+        </SectionCard>
+
+        {/* Manage by Legend ID */}
+        <SectionCard title="MANAGE BY LEGEND ID" icon={Hash}>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs font-display text-muted-foreground tracking-wider">LEGEND ID</Label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="e.g. 100001"
+                value={legendIdInput}
+                onChange={(e) => {
+                  setLegendIdInput(e.target.value);
+                  setLegendIdSearchResult(null);
+                  setLegendIdNotFound(false);
+                }}
+                style={inputStyle}
+                className="h-10 font-mono-game text-sm flex-1"
+                onKeyDown={(e) => { if (e.key === "Enter") handleLookupByLegendId(); }}
+              />
+              <Button
+                type="button"
+                onClick={handleLookupByLegendId}
+                disabled={getUserByLegendIdMutation.isPending}
+                className="h-10 px-4 font-display font-bold text-xs tracking-wider shrink-0"
+                style={{
+                  background: "linear-gradient(135deg, oklch(0.72 0.22 220), oklch(0.6 0.2 220))",
+                  color: "oklch(0.95 0.005 80)",
+                  border: "none",
+                }}
+              >
+                {getUserByLegendIdMutation.isPending ? "..." : "LOOKUP"}
+              </Button>
+            </div>
+          </div>
+
+          {legendIdNotFound && (
+            <div
+              className="rounded-xl p-3 flex items-center gap-2"
+              style={{ background: "oklch(0.65 0.25 25 / 0.08)", border: "1px solid oklch(0.65 0.25 25 / 0.25)" }}
+            >
+              <Hash className="w-4 h-4 shrink-0" style={{ color: "oklch(0.65 0.25 25)" }} />
+              <span className="text-sm font-display font-bold" style={{ color: "oklch(0.65 0.25 25)" }}>
+                Legend ID not found
+              </span>
+            </div>
+          )}
+
+          {legendIdSearchResult && (() => {
+            const [, profile] = legendIdSearchResult;
+            return (
+              <div
+                className="rounded-xl overflow-hidden flex flex-col"
+                style={{ border: "1px solid oklch(0.72 0.22 220 / 0.35)" }}
+              >
+                {/* Legend ID badge header */}
+                <div
+                  className="px-3 py-2 flex items-center gap-2"
+                  style={{ background: "oklch(0.72 0.22 220 / 0.1)", borderBottom: "1px solid oklch(0.72 0.22 220 / 0.2)" }}
+                >
+                  <Hash className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.72 0.22 220)" }} />
+                  <span
+                    className="font-display font-bold text-base tracking-widest"
+                    style={{ color: "oklch(0.82 0.22 55)", textShadow: "0 0 12px oklch(0.82 0.22 55 / 0.35)" }}
+                  >
+                    #{profile.legendId.toString().padStart(4, '0')}
+                  </span>
+                  <div
+                    className="ml-auto shrink-0 text-[10px] font-display font-bold px-2 py-0.5 rounded-full flex items-center gap-1"
+                    style={{
+                      background: "oklch(0.82 0.18 85 / 0.12)",
+                      color: "oklch(0.82 0.18 85)",
+                      border: "1px solid oklch(0.82 0.18 85 / 0.3)",
+                    }}
+                  >
+                    <LCoinIcon size={11} />
+                    {profile.balance.toString()}
+                  </div>
+                </div>
+
+                {/* Profile details */}
+                <div className="px-3 py-2.5 flex flex-col gap-1.5">
+                  {profile.fullName && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">FULL NAME</span>
+                      <span className="text-xs font-body" style={{ color: "oklch(0.85 0.01 240)" }}>{profile.fullName}</span>
+                    </div>
+                  )}
+                  {profile.inGameName && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">IN-GAME</span>
+                      <span className="text-xs font-display font-bold" style={{ color: "oklch(0.72 0.22 45)" }}>{profile.inGameName}</span>
+                    </div>
+                  )}
+                  {profile.email && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">EMAIL</span>
+                      <span className="text-xs font-body truncate" style={{ color: "oklch(0.75 0.01 240)" }}>{profile.email}</span>
+                    </div>
+                  )}
+                  {profile.mobileNo && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">MOBILE</span>
+                      <span className="text-xs font-mono-game" style={{ color: "oklch(0.75 0.01 240)" }}>+92 {profile.mobileNo}</span>
+                    </div>
+                  )}
+                  {profile.gameUID && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">GAME UID</span>
+                      <span className="text-xs font-mono-game" style={{ color: "oklch(0.7 0.01 240)" }}>{profile.gameUID}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Coin actions */}
+                <div
+                  className="px-3 py-3 flex flex-col gap-2"
+                  style={{ borderTop: "1px solid oklch(0.72 0.22 220 / 0.2)", background: "oklch(0.11 0.015 240)" }}
+                >
+                  <Label className="text-xs font-display text-muted-foreground tracking-wider">COIN AMOUNT</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 500"
+                    value={legendIdCoinAmount}
+                    onChange={(e) => setLegendIdCoinAmount(e.target.value)}
+                    style={inputStyle}
+                    className="h-10"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      onClick={handleAddCoinsByLegendId}
+                      disabled={addCoinsByLegendIdMutation.isPending || removeCoinsByLegendIdMutation.isPending}
+                      className="h-10 font-display font-bold text-xs tracking-wider"
+                      style={{
+                        background: "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+                        color: "oklch(0.08 0.01 240)",
+                        border: "none",
+                      }}
+                    >
+                      {addCoinsByLegendIdMutation.isPending ? "Adding..." : "+ ADD COINS"}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleRemoveCoinsByLegendId}
+                      disabled={addCoinsByLegendIdMutation.isPending || removeCoinsByLegendIdMutation.isPending}
+                      className="h-10 font-display font-bold text-xs tracking-wider"
+                      style={{
+                        background: "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
+                        color: "oklch(0.95 0.005 80)",
+                        border: "none",
+                      }}
+                    >
+                      {removeCoinsByLegendIdMutation.isPending ? "Removing..." : "- REMOVE COINS"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </SectionCard>
+
         {/* Pending Deposit Requests */}
         <SectionCard title="DEPOSIT REQUESTS" icon={ArrowDownLeft}>
           {depositLoading ? (
@@ -387,8 +677,9 @@ export default function AdminPage() {
                           {truncatePrincipal(req.user)}
                         </span>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-display font-bold text-sm neon-text-gold">
-                            +{req.amount.toString()} coins
+                          <span className="font-display font-bold text-sm neon-text-gold flex items-center gap-1">
+                            <LCoinIcon size={13} />
+                            +{req.amount.toString()}
                           </span>
                           <span
                             className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-display font-bold tracking-wider"
@@ -471,8 +762,9 @@ export default function AdminPage() {
                       {truncatePrincipal(req.user)}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="font-display font-bold text-sm" style={{ color: "oklch(0.72 0.25 25)" }}>
-                        -{req.amount.toString()} coins
+                      <span className="font-display font-bold text-sm flex items-center gap-1" style={{ color: "oklch(0.72 0.25 25)" }}>
+                        <LCoinIcon size={13} />
+                        -{req.amount.toString()}
                       </span>
                       <span className="flex items-center gap-1 text-[10px] font-mono-game text-muted-foreground">
                         <Clock className="w-2.5 h-2.5" />
@@ -645,6 +937,20 @@ export default function AdminPage() {
 
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-display text-muted-foreground tracking-wider">
+              MATCH BANNER IMAGE URL (optional)
+            </Label>
+            <Input
+              placeholder="https://example.com/banner.jpg"
+              value={tImageUrl}
+              onChange={(e) => setTImageUrl(e.target.value)}
+              style={inputStyle}
+              className="h-10"
+            />
+            <p className="text-[10px] text-muted-foreground font-body">Image shown on tournament card & detail page</p>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs font-display text-muted-foreground tracking-wider">
               PRIZE DISTRIBUTION (comma-separated)
             </Label>
             <Input
@@ -759,7 +1065,7 @@ export default function AdminPage() {
         </SectionCard>
 
         {/* Add Coins */}
-        <SectionCard title="ADD COINS TO USER" icon={Coins}>
+        <SectionCard title="ADD COINS (BY PRINCIPAL)" icon={LCoinSectionIcon}>
           <div className="flex flex-col gap-1">
             <Label className="text-xs font-display text-muted-foreground tracking-wider">
               USER PRINCIPAL
@@ -841,22 +1147,37 @@ export default function AdminPage() {
                       {(profile.fullName || profile.username || "?").charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-display font-bold text-foreground truncate">
-                        {profile.fullName || profile.username || "Unknown"}
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-display font-bold text-foreground truncate">
+                          {profile.fullName || profile.username || "Unknown"}
+                        </span>
+                        {profile.legendId > 0n && (
+                          <span
+                            className="text-[10px] font-display font-bold px-2 py-0.5 rounded-full shrink-0"
+                            style={{
+                              background: "oklch(0.72 0.22 220 / 0.12)",
+                              color: "oklch(0.72 0.22 220)",
+                              border: "1px solid oklch(0.72 0.22 220 / 0.35)",
+                            }}
+                          >
+                            #{profile.legendId.toString().padStart(4, '0')}
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] font-mono-game text-muted-foreground truncate">
                         {truncatePrincipal(principal)}
                       </span>
                     </div>
                     <div
-                      className="ml-auto shrink-0 text-[10px] font-display font-bold px-2 py-0.5 rounded-full"
+                      className="ml-auto shrink-0 text-[10px] font-display font-bold px-2 py-0.5 rounded-full flex items-center gap-1"
                       style={{
                         background: "oklch(0.82 0.18 85 / 0.12)",
                         color: "oklch(0.82 0.18 85)",
                         border: "1px solid oklch(0.82 0.18 85 / 0.3)",
                       }}
                     >
-                      {profile.balance.toString()} coins
+                      <LCoinIcon size={11} />
+                      {profile.balance.toString()}
                     </div>
                   </div>
 

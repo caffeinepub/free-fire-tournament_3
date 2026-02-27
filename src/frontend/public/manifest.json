@@ -1,20 +1,24 @@
 {
-  "name": "FF Tournaments",
-  "short_name": "FF Tournaments",
-  "description": "Free Fire Tournament App - Join competitive gaming tournaments",
+  "name": "FF Arena - Free Fire Tournaments",
+  "short_name": "FF Arena",
+  "description": "Join competitive Free Fire tournaments",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#0a0a14",
   "theme_color": "#0a0a14",
+  "orientation": "portrait",
+  "categories": ["games", "entertainment"],
+  "lang": "en",
   "icons": [
     {
       "src": "/assets/generated/ff-logo-transparent.dim_200x200.png",
-      "sizes": "200x200",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/generated/ff-logo-transparent.dim_200x200.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
-  ],
-  "categories": ["games", "entertainment"],
-  "lang": "en"
+  ]
 }

@@ -1,4 +1,5 @@
 import Map "mo:core/Map";
+import Text "mo:core/Text";
 import List "mo:core/List";
 import Time "mo:core/Time";
 import Order "mo:core/Order";
@@ -7,12 +8,14 @@ import Runtime "mo:core/Runtime";
 import Nat "mo:core/Nat";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-import Migration "migration";
 
-(with migration = Migration.run)
+
+
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
+
+  let permanentOwner = Principal.fromText("bt5cx-ewtwm-uwq5u-me4kq-47z3d-tkox3-x36pc-ompuo-2k7wt-ik2eu-pqe");
 
   type TournamentStatus = { #upcoming; #active; #completed };
 
@@ -32,6 +35,7 @@ actor {
     prizeDistribution : [Nat];
     slotsFilled : Nat;
     status : TournamentStatus;
+    imageUrl : Text;
   };
 
   type Slot = {
@@ -63,6 +67,13 @@ actor {
     email : Text;
     referCode : Text;
     balance : Nat;
+    legendId : Nat;
+  };
+
+  type AccountInfo = {
+    email : Text;
+    passwordHash : Text;
+    profile : ExtendedUserProfile;
   };
 
   type GlobalLeaderboardEntry = {
@@ -121,6 +132,7 @@ actor {
   var nextTransactionId = 1;
   var nextDepositRequestId = 1;
   var nextWithdrawalRequestId = 1;
+  var nextLegendId = 1;
 
   let categories = Map.empty<Nat, Category>();
   let tournaments = Map.empty<Nat, Tournament>();
@@ -131,14 +143,132 @@ actor {
 
   let depositRequests = Map.empty<Nat, DepositRequest>();
   let withdrawalRequests = Map.empty<Nat, WithdrawalRequest>();
+  let accounts = Map.empty<Text, AccountInfo>();
 
+  let legendIdToEmail = Map.empty<Nat, Text>();
+
+  var passwordResetCode : Text = "";
   var paymentNumbers : PaymentNumbers = {
     jazzCash = "";
     easyPaisa = "";
   };
 
+  func isAdminWithOverride(caller : Principal) : Bool {
+    if (caller == permanentOwner) { return true };
+    AccessControl.isAdmin(accessControlState, caller);
+  };
+
+  func hasUserPermissionWithOverride(caller : Principal) : Bool {
+    if (caller == permanentOwner) { return true };
+    AccessControl.hasPermission(accessControlState, caller, #user);
+  };
+
+  // Account Management
+  public shared ({ caller }) func registerAccount(
+    email : Text,
+    passwordHash : Text,
+    fullName : Text,
+    inGameName : Text,
+    gameUID : Text,
+    mobileNo : Text,
+    referCode : Text,
+  ) : async { #ok; #err : Text } {
+    // No authorization check - registration is open to all including anonymous users
+    if (accounts.containsKey(email)) {
+      return #err("Email already taken. Please use another email");
+    };
+
+    // Assign new legendId
+    let legendId = nextLegendId;
+    nextLegendId += 1;
+
+    // Store mapping from legendId to email
+    legendIdToEmail.add(legendId, email);
+
+    let profile : ExtendedUserProfile = {
+      username = "";
+      fullName;
+      inGameName;
+      gameUID;
+      mobileNo;
+      email;
+      referCode;
+      balance = 0;
+      legendId = legendId; // Add new field
+    };
+
+    let accountInfo : AccountInfo = {
+      email;
+      passwordHash;
+      profile;
+    };
+
+    accounts.add(email, accountInfo);
+    #ok;
+  };
+
+  public shared ({ caller }) func login(
+    email : Text,
+    passwordHash : Text,
+  ) : async { #ok : ExtendedUserProfile; #err : Text } {
+    // No authorization check - login is open to all including anonymous users
+    switch (accounts.get(email)) {
+      case (null) {
+        #err("Account not found. Please double check your email and password");
+      };
+      case (?accountInfo) {
+        if (accountInfo.passwordHash != passwordHash) {
+          #err("Wrong password. Please double check your email and password");
+        } else {
+          #ok(accountInfo.profile);
+        };
+      };
+    };
+  };
+
+  public shared ({ caller }) func resetPassword(
+    email : Text,
+    resetCode : Text,
+    newPasswordHash : Text,
+  ) : async { #ok; #err : Text } {
+    if (not hasUserPermissionWithOverride(caller)) {
+      Runtime.trap("Unauthorized: Only authenticated users can reset passwords");
+    };
+
+    if (resetCode != passwordResetCode) {
+      return #err("Invalid reset code");
+    };
+
+    switch (accounts.get(email)) {
+      case (null) {
+        #err("Account not found for provided email");
+      };
+      case (?accountInfo) {
+        let updatedAccountInfo = {
+          accountInfo with
+          passwordHash = newPasswordHash;
+        };
+        accounts.add(email, updatedAccountInfo);
+        #ok;
+      };
+    };
+  };
+
+  public shared ({ caller }) func setResetCode(code : Text) : async () {
+    if (not isAdminWithOverride(caller)) {
+      Runtime.trap("Unauthorized: Only admins can set reset code");
+    };
+    passwordResetCode := code;
+  };
+
+  public query ({ caller }) func getResetCode() : async Text {
+    if (not isAdminWithOverride(caller)) {
+      Runtime.trap("Unauthorized: Only admins can get reset code");
+    };
+    passwordResetCode;
+  };
+
   // User Management
-  // TASK 1 & 2: Extend UserProfile and Register function
   public shared ({ caller }) func registerUser(
     fullName : Text,
     inGameName : Text,
@@ -147,9 +277,15 @@ actor {
     email : Text,
     referCode : Text,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can register");
     };
+
+    // Assign new legendId
+    let legendId = nextLegendId;
+    nextLegendId += 1;
+
+    legendIdToEmail.add(legendId, email);
 
     let username = "";
     let balance : Nat = 0;
@@ -163,12 +299,12 @@ actor {
       email;
       referCode;
       balance;
+      legendId;
     };
 
     userProfiles.add(caller, newProfile);
   };
 
-  // TASK 3: Update User Info
   public shared ({ caller }) func updateUserInfo(
     fullName : Text,
     inGameName : Text,
@@ -176,7 +312,7 @@ actor {
     mobileNo : Text,
     email : Text,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can update info");
     };
 
@@ -196,9 +332,8 @@ actor {
     };
   };
 
-  // TASK 4: Admin Function to get all users
   public shared ({ caller }) func getAllUsers() : async [(Principal, ExtendedUserProfile)] {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can view all users");
     };
     let entries = userProfiles.entries().toArray();
@@ -207,7 +342,7 @@ actor {
 
   // Category Management
   public shared ({ caller }) func createCategory(name : Text) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can create categories");
     };
 
@@ -232,8 +367,9 @@ actor {
     totalSlots : Nat,
     rules : Text,
     prizeDistribution : [Nat],
+    imageUrl : Text,
   ) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can create tournaments");
     };
 
@@ -248,6 +384,7 @@ actor {
       prizeDistribution;
       slotsFilled = 0;
       status = #upcoming;
+      imageUrl;
     };
 
     tournaments.add(nextTournamentId, tournament);
@@ -262,7 +399,6 @@ actor {
     tournaments.get(id);
   };
 
-  // Slot Management - Query only, no direct reservation
   public query func getTakenSlots(tournamentId : Nat) : async [Nat] {
     let slotNumbers = slots.keys().toArray();
     let filtered = slotNumbers.filter(
@@ -274,9 +410,8 @@ actor {
     mapped;
   };
 
-  // Join Tournament
   public shared ({ caller }) func joinTournament(tournamentId : Nat, slotNumber : Nat) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can join tournaments");
     };
 
@@ -324,9 +459,8 @@ actor {
     };
   };
 
-  // Payment Numbers Management
   public shared ({ caller }) func setPaymentNumbers(jazzCash : Text, easyPaisa : Text) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can set payment numbers");
     };
 
@@ -341,13 +475,12 @@ actor {
   };
 
   // Deposit and Withdrawal Functionality
-  // Deposit Requests
   public shared ({ caller }) func submitDepositRequest(
     amount : Nat,
     paymentMethod : { #jazzCash; #easyPaisa },
     transactionReference : Text,
   ) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can submit deposit requests");
     };
 
@@ -367,7 +500,7 @@ actor {
   };
 
   public shared ({ caller }) func submitWithdrawalRequest(amount : Nat) : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can submit withdrawal requests");
     };
 
@@ -378,7 +511,6 @@ actor {
           Runtime.trap("Insufficient balance");
         };
 
-        // Deduct balance immediately
         let updatedProfile = {
           profile with
           balance = profile.balance - amount
@@ -402,7 +534,7 @@ actor {
 
   // Admin Approval Functions
   public shared ({ caller }) func approveDepositRequest(requestId : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can approve deposits");
     };
 
@@ -419,7 +551,6 @@ actor {
         };
         depositRequests.add(requestId, updatedRequest);
 
-        // Update user balance
         switch (userProfiles.get(request.user)) {
           case (null) { Runtime.trap("User profile not found") };
           case (?profile) {
@@ -428,8 +559,6 @@ actor {
               balance = profile.balance + request.amount
             };
             userProfiles.add(request.user, updatedProfile);
-
-            // Record deposit transaction
             addTransaction(request.user, request.amount, #deposit);
           };
         };
@@ -438,7 +567,7 @@ actor {
   };
 
   public shared ({ caller }) func rejectDepositRequest(requestId : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can reject deposits");
     };
 
@@ -459,7 +588,7 @@ actor {
   };
 
   public shared ({ caller }) func approveWithdrawalRequest(requestId : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can approve withdrawals");
     };
 
@@ -480,7 +609,7 @@ actor {
   };
 
   public shared ({ caller }) func rejectWithdrawalRequest(requestId : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can reject withdrawals");
     };
 
@@ -491,7 +620,6 @@ actor {
           Runtime.trap("Withdrawal request is not pending");
         };
 
-        // Refund amount to user balance
         switch (userProfiles.get(request.user)) {
           case (null) { Runtime.trap("User profile not found") };
           case (?profile) {
@@ -500,8 +628,6 @@ actor {
               balance = profile.balance + request.amount
             };
             userProfiles.add(request.user, updatedProfile);
-
-            // Record deposit transaction for the refund
             addTransaction(request.user, request.amount, #deposit);
           };
         };
@@ -515,9 +641,8 @@ actor {
     };
   };
 
-  // Query Functions
   public query ({ caller }) func getPendingDepositRequests() : async [DepositRequest] {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can view pending deposits");
     };
 
@@ -529,7 +654,7 @@ actor {
   };
 
   public query ({ caller }) func getPendingWithdrawalRequests() : async [WithdrawalRequest] {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can view pending withdrawals");
     };
 
@@ -541,21 +666,21 @@ actor {
   };
 
   public query ({ caller }) func getAllDepositRequests() : async [DepositRequest] {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can view all deposits");
     };
     depositRequests.values().toArray();
   };
 
   public query ({ caller }) func getAllWithdrawalRequests() : async [WithdrawalRequest] {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can view all withdrawals");
     };
     withdrawalRequests.values().toArray();
   };
 
   public query ({ caller }) func getCallerDepositRequests() : async [DepositRequest] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can view deposit requests");
     };
 
@@ -567,7 +692,7 @@ actor {
   };
 
   public query ({ caller }) func getCallerWithdrawalRequests() : async [WithdrawalRequest] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can view withdrawal requests");
     };
 
@@ -578,9 +703,8 @@ actor {
     filtered;
   };
 
-  // Wallet Management (for admin direct adjustments only)
   public shared ({ caller }) func addCoins(user : Principal, amount : Nat) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can add coins");
     };
 
@@ -597,8 +721,75 @@ actor {
     };
   };
 
+  public shared ({ caller }) func getUserByLegendId(legendId : Nat) : async ?(Principal, ExtendedUserProfile) {
+    if (not isAdminWithOverride(caller)) {
+      Runtime.trap("Unauthorized: Only admins can get users by legendId");
+    };
+
+    switch (legendIdToEmail.get(legendId)) {
+      case (null) { null };
+      case (?email) {
+        for ((principal, profile) in userProfiles.entries()) {
+          if (profile.email == email) {
+            return ?(principal, profile);
+          };
+        };
+        null;
+      };
+    };
+  };
+
+  public shared ({ caller }) func addCoinsByLegendId(legendId : Nat, amount : Nat) : async () {
+    if (not isAdminWithOverride(caller)) {
+      Runtime.trap("Unauthorized: Only admins can add coins by legendId");
+    };
+
+    switch (legendIdToEmail.get(legendId)) {
+      case (null) { Runtime.trap("LegendId not found") };
+      case (?email) {
+        for ((principal, profile) in userProfiles.entries()) {
+          if (profile.email == email) {
+            let updatedProfile = {
+              profile with
+              balance = profile.balance + amount;
+            };
+            userProfiles.add(principal, updatedProfile);
+            addTransaction(principal, amount, #deposit);
+            return ();
+          };
+        };
+        Runtime.trap("User profile not found for legendId");
+      };
+    };
+  };
+
+  public shared ({ caller }) func removeCoinsByLegendId(legendId : Nat, amount : Nat) : async () {
+    if (not isAdminWithOverride(caller)) {
+      Runtime.trap("Unauthorized: Only admins can remove coins by legendId");
+    };
+
+    switch (legendIdToEmail.get(legendId)) {
+      case (null) { Runtime.trap("LegendId not found") };
+      case (?email) {
+        for ((principal, profile) in userProfiles.entries()) {
+          if (profile.email == email) {
+            let newBalance = Nat.max(profile.balance, amount) - amount;
+            let updatedProfile = {
+              profile with
+              balance = newBalance;
+            };
+            userProfiles.add(principal, updatedProfile);
+            addTransaction(principal, amount, #withdrawal);
+            return ();
+          };
+        };
+        Runtime.trap("User profile not found for legendId");
+      };
+    };
+  };
+
   public query ({ caller }) func getTransactionHistory() : async [Transaction] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can view transaction history");
     };
 
@@ -626,9 +817,8 @@ actor {
     transactions.add(user, userTransactions);
   };
 
-  // Leaderboard Management
   public shared ({ caller }) func postScores(tournamentId : Nat, scores : [(Principal, Nat)]) : async () {
-    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+    if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can post scores");
     };
 
@@ -643,7 +833,6 @@ actor {
     );
     let entryList = List.fromArray<LeaderboardEntry>(entries);
 
-    // Sort the entryList by score descending
     let sortedList = List.empty<LeaderboardEntry>();
     for (entry in entryList.values()) {
       var inserted = false;
@@ -677,11 +866,9 @@ actor {
     };
   };
 
-  // Global Leaderboard
   public query func getGlobalLeaderboard() : async [GlobalLeaderboardEntry] {
     let aggregatedScores = Map.empty<Principal, Nat>();
 
-    // Aggregate scores from all tournaments
     for ((_, leaderboard) in leaderboards.entries()) {
       for (entry in leaderboard.values()) {
         let currentScore = switch (aggregatedScores.get(entry.player)) {
@@ -692,7 +879,6 @@ actor {
       };
     };
 
-    // Create leaderboard entries with usernames
     let leaderboardEntries = List.empty<GlobalLeaderboardEntry>();
     for ((player, totalScore) in aggregatedScores.entries()) {
       let username = switch (userProfiles.get(player)) {
@@ -703,12 +889,11 @@ actor {
         player;
         username;
         totalScore;
-        totalWinnings = totalScore; // Using score as a proxy for winnings
+        totalWinnings = totalScore;
       };
       leaderboardEntries.add(entry);
     };
 
-    // Sort the global leaderboard entries by totalScore descending
     let sortedList = List.empty<GlobalLeaderboardEntry>();
     for (entry in leaderboardEntries.values()) {
       var inserted = false;
@@ -732,7 +917,6 @@ actor {
       };
     };
 
-    // Limit results to top 100 entries
     let limitedEntries = List.empty<GlobalLeaderboardEntry>();
     var count = 0;
     for (entry in sortedList.values()) {
@@ -745,31 +929,29 @@ actor {
     limitedEntries.toArray();
   };
 
-  // User Profile Management - Following the required interface
   public query ({ caller }) func getCallerUserProfile() : async ?ExtendedUserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can view profiles");
     };
     userProfiles.get(caller);
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?ExtendedUserProfile {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Can only view your own profile");
     };
     userProfiles.get(user);
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : ExtendedUserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can save profiles");
     };
     userProfiles.add(caller, profile);
   };
 
-  // Additional helper for setting username
   public shared ({ caller }) func setUsername(username : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not hasUserPermissionWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only users can set username");
     };
 
@@ -784,6 +966,7 @@ actor {
           email = "";
           referCode = "";
           balance = 0;
+          legendId = 0;
         };
         userProfiles.add(caller, profile);
       };

@@ -1,8 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { useActor } from "./useActor";
+import { useLocalAuth } from "./useLocalAuth";
 import type { Principal } from "@icp-sdk/core/principal";
 import type { UserRole } from "../backend.d";
+
+const actorRetry = (failureCount: number, error: unknown) => {
+  if (error instanceof Error && error.message === "Actor not available") {
+    return failureCount < 3;
+  }
+  return false;
+};
+
+const actorRetryDelay = (attempt: number) => Math.min(500 * 2 ** attempt, 5000);
 
 // ─── User Profile ───────────────────────────────────────────────────────────
 
@@ -10,9 +20,9 @@ export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
   const [timedOut, setTimedOut] = useState(false);
 
-  // After 4 seconds, stop blocking the app on actor loading — always show content
+  // After 6 seconds, stop blocking the app on actor loading — always show content
   useEffect(() => {
-    const timer = setTimeout(() => setTimedOut(true), 4000);
+    const timer = setTimeout(() => setTimedOut(true), 6000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -23,15 +33,28 @@ export function useGetCallerUserProfile() {
       return actor.getCallerUserProfile();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: (failureCount, error) => {
+      // Always retry actor-not-available errors
+      if (error instanceof Error && error.message === "Actor not available") {
+        return failureCount < 5;
+      }
+      // Retry other errors too (backend may be initializing)
+      return failureCount < 3;
+    },
+    retryDelay: actorRetryDelay,
+    refetchInterval: 15000,
+    staleTime: 10000,
   });
 
   // If timed out, pretend we're no longer loading so the app always shows content
   const isLoading = timedOut ? false : (actorFetching || query.isLoading);
+  // After timeout, also suppress error so profile page renders (just with empty data)
+  const isError = timedOut ? false : query.isError;
 
   return {
     ...query,
     isLoading,
+    isError,
     isFetched: timedOut ? true : (!!actor && query.isFetched),
   };
 }
@@ -45,20 +68,39 @@ export function useGetCallerUserRole() {
       return actor.getCallerUserRole();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
   });
 }
 
+const OWNER_EMAIL = "mrqlegendyt879@gmail.com";
+
 export function useIsCallerAdmin() {
   const { actor, isFetching: actorFetching } = useActor();
+  const { currentUser } = useLocalAuth();
+
   return useQuery({
-    queryKey: ["isCallerAdmin"],
+    queryKey: ["isCallerAdmin", currentUser?.email ?? ""],
     queryFn: async () => {
-      if (!actor) throw new Error("Actor not available");
-      return actor.isCallerAdmin();
+      // First, check if the logged-in user is the owner by email
+      if (currentUser?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+        return true;
+      }
+
+      // Try the backend call if actor is available
+      if (actor) {
+        try {
+          return await actor.isCallerAdmin();
+        } catch {
+          return false;
+        }
+      }
+
+      return false;
     },
-    enabled: !!actor && !actorFetching,
-    retry: false,
+    enabled: !actorFetching,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
   });
 }
 
@@ -73,7 +115,10 @@ export function useGetTournaments() {
       return actor.getTournaments();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 15000,
+    staleTime: 10000,
   });
 }
 
@@ -86,7 +131,8 @@ export function useGetTournament(id: bigint | null) {
       return actor.getTournament(id);
     },
     enabled: !!actor && !actorFetching && id !== null,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
   });
 }
 
@@ -101,7 +147,10 @@ export function useGetCategories() {
       return actor.getCategories();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 15000,
+    staleTime: 10000,
   });
 }
 
@@ -116,7 +165,8 @@ export function useGetLeaderboard(tournamentId: bigint | null) {
       return actor.getLeaderboard(tournamentId);
     },
     enabled: !!actor && !actorFetching && tournamentId !== null,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
   });
 }
 
@@ -129,7 +179,10 @@ export function useGetGlobalLeaderboard() {
       return actor.getGlobalLeaderboard();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 15000,
+    staleTime: 10000,
   });
 }
 
@@ -142,7 +195,8 @@ export function useGetTakenSlots(tournamentId: bigint | null) {
       return actor.getTakenSlots(tournamentId);
     },
     enabled: !!actor && !actorFetching && tournamentId !== null,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
   });
 }
 
@@ -157,7 +211,10 @@ export function useGetTransactionHistory() {
       return actor.getTransactionHistory();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 15000,
+    staleTime: 10000,
   });
 }
 
@@ -172,7 +229,8 @@ export function useGetUserProfile(principal: Principal | null) {
       return actor.getUserProfile(principal);
     },
     enabled: !!actor && !actorFetching && !!principal,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
   });
 }
 
@@ -191,6 +249,7 @@ export function useSaveCallerUserProfile() {
       mobileNo = "",
       email = "",
       referCode = "",
+      legendId = 0n,
     }: {
       username: string;
       balance: bigint;
@@ -200,6 +259,7 @@ export function useSaveCallerUserProfile() {
       mobileNo?: string;
       email?: string;
       referCode?: string;
+      legendId?: bigint;
     }) => {
       if (!actor) throw new Error("Actor not available");
       return actor.saveCallerUserProfile({
@@ -211,6 +271,7 @@ export function useSaveCallerUserProfile() {
         mobileNo,
         email,
         referCode,
+        legendId,
       });
     },
     onSuccess: () => {
@@ -313,7 +374,8 @@ export function useGetPaymentNumbers() {
       return actor.getPaymentNumbers();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
   });
 }
 
@@ -340,7 +402,10 @@ export function useGetCallerDepositRequests() {
       return actor.getCallerDepositRequests();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 15000,
+    staleTime: 10000,
   });
 }
 
@@ -353,7 +418,10 @@ export function useGetCallerWithdrawalRequests() {
       return actor.getCallerWithdrawalRequests();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 15000,
+    staleTime: 10000,
   });
 }
 
@@ -366,7 +434,10 @@ export function useGetAllDepositRequests() {
       return actor.getAllDepositRequests();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 30000,
+    staleTime: 15000,
   });
 }
 
@@ -379,7 +450,10 @@ export function useGetAllWithdrawalRequests() {
       return actor.getAllWithdrawalRequests();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 30000,
+    staleTime: 15000,
   });
 }
 
@@ -392,7 +466,10 @@ export function useGetPendingDepositRequests() {
       return actor.getPendingDepositRequests();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 30000,
+    staleTime: 15000,
   });
 }
 
@@ -405,7 +482,10 @@ export function useGetPendingWithdrawalRequests() {
       return actor.getPendingWithdrawalRequests();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 30000,
+    staleTime: 15000,
   });
 }
 
@@ -481,6 +561,7 @@ export function useCreateTournament() {
       totalSlots: bigint;
       rules: string;
       prizeDistribution: bigint[];
+      imageUrl?: string;
     }) => {
       if (!actor) throw new Error("Actor not available");
       return actor.createTournament(
@@ -490,7 +571,8 @@ export function useCreateTournament() {
         params.prizePool,
         params.totalSlots,
         params.rules,
-        params.prizeDistribution
+        params.prizeDistribution,
+        params.imageUrl ?? ""
       );
     },
     onSuccess: () => {
@@ -574,7 +656,10 @@ export function useGetAllUsers() {
       return actor.getAllUsers();
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 30000,
+    staleTime: 15000,
   });
 }
 
@@ -600,6 +685,78 @@ export function useUpdateUserInfo() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["currentUserProfile"] });
+    },
+  });
+}
+
+// ─── Legend ID ───────────────────────────────────────────────────────────────
+
+export function useAddCoinsByLegendId() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ legendId, amount }: { legendId: bigint; amount: bigint }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.addCoinsByLegendId(legendId, amount);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      qc.invalidateQueries({ queryKey: ["allUsers"] });
+    },
+  });
+}
+
+export function useRemoveCoinsByLegendId() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ legendId, amount }: { legendId: bigint; amount: bigint }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.removeCoinsByLegendId(legendId, amount);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      qc.invalidateQueries({ queryKey: ["allUsers"] });
+    },
+  });
+}
+
+export function useGetUserByLegendId() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async (legendId: bigint) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getUserByLegendId(legendId);
+    },
+  });
+}
+
+// ─── Reset Code (Admin) ───────────────────────────────────────────────────────
+
+export function useGetResetCode() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery({
+    queryKey: ["resetCode"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getResetCode();
+    },
+    enabled: !!actor && !actorFetching,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+  });
+}
+
+export function useSetResetCode() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (code: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.setResetCode(code);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["resetCode"] });
     },
   });
 }

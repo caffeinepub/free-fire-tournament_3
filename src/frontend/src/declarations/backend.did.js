@@ -34,6 +34,7 @@ export const ExtendedUserProfile = IDL.Record({
   'inGameName' : IDL.Text,
   'username' : IDL.Text,
   'balance' : IDL.Nat,
+  'legendId' : IDL.Nat,
   'referCode' : IDL.Text,
   'mobileNo' : IDL.Text,
   'fullName' : IDL.Text,
@@ -78,6 +79,7 @@ export const Tournament = IDL.Record({
   'status' : TournamentStatus,
   'prizeDistribution' : IDL.Vec(IDL.Nat),
   'title' : IDL.Text,
+  'imageUrl' : IDL.Text,
   'totalSlots' : IDL.Nat,
   'entryFee' : IDL.Nat,
   'slotsFilled' : IDL.Nat,
@@ -99,6 +101,7 @@ export const Transaction = IDL.Record({
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addCoins' : IDL.Func([IDL.Principal, IDL.Nat], [], []),
+  'addCoinsByLegendId' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
   'approveDepositRequest' : IDL.Func([IDL.Nat], [], []),
   'approveWithdrawalRequest' : IDL.Func([IDL.Nat], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
@@ -112,6 +115,7 @@ export const idlService = IDL.Service({
         IDL.Nat,
         IDL.Text,
         IDL.Vec(IDL.Nat),
+        IDL.Text,
       ],
       [],
       [],
@@ -165,10 +169,16 @@ export const idlService = IDL.Service({
       [IDL.Vec(WithdrawalRequest)],
       ['query'],
     ),
+  'getResetCode' : IDL.Func([], [IDL.Text], ['query']),
   'getTakenSlots' : IDL.Func([IDL.Nat], [IDL.Vec(IDL.Nat)], ['query']),
   'getTournament' : IDL.Func([IDL.Nat], [IDL.Opt(Tournament)], ['query']),
   'getTournaments' : IDL.Func([], [IDL.Vec(Tournament)], ['query']),
   'getTransactionHistory' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
+  'getUserByLegendId' : IDL.Func(
+      [IDL.Nat],
+      [IDL.Opt(IDL.Tuple(IDL.Principal, ExtendedUserProfile))],
+      [],
+    ),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(ExtendedUserProfile)],
@@ -176,9 +186,19 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'joinTournament' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
+  'login' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [IDL.Variant({ 'ok' : ExtendedUserProfile, 'err' : IDL.Text })],
+      [],
+    ),
   'postScores' : IDL.Func(
       [IDL.Nat, IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Nat))],
       [],
+      [],
+    ),
+  'registerAccount' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
       [],
     ),
   'registerUser' : IDL.Func(
@@ -188,8 +208,15 @@ export const idlService = IDL.Service({
     ),
   'rejectDepositRequest' : IDL.Func([IDL.Nat], [], []),
   'rejectWithdrawalRequest' : IDL.Func([IDL.Nat], [], []),
+  'removeCoinsByLegendId' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
+  'resetPassword' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+      [],
+    ),
   'saveCallerUserProfile' : IDL.Func([ExtendedUserProfile], [], []),
   'setPaymentNumbers' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'setResetCode' : IDL.Func([IDL.Text], [], []),
   'setUsername' : IDL.Func([IDL.Text], [], []),
   'submitDepositRequest' : IDL.Func(
       [
@@ -237,6 +264,7 @@ export const idlFactory = ({ IDL }) => {
     'inGameName' : IDL.Text,
     'username' : IDL.Text,
     'balance' : IDL.Nat,
+    'legendId' : IDL.Nat,
     'referCode' : IDL.Text,
     'mobileNo' : IDL.Text,
     'fullName' : IDL.Text,
@@ -281,6 +309,7 @@ export const idlFactory = ({ IDL }) => {
     'status' : TournamentStatus,
     'prizeDistribution' : IDL.Vec(IDL.Nat),
     'title' : IDL.Text,
+    'imageUrl' : IDL.Text,
     'totalSlots' : IDL.Nat,
     'entryFee' : IDL.Nat,
     'slotsFilled' : IDL.Nat,
@@ -302,6 +331,7 @@ export const idlFactory = ({ IDL }) => {
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addCoins' : IDL.Func([IDL.Principal, IDL.Nat], [], []),
+    'addCoinsByLegendId' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
     'approveDepositRequest' : IDL.Func([IDL.Nat], [], []),
     'approveWithdrawalRequest' : IDL.Func([IDL.Nat], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
@@ -315,6 +345,7 @@ export const idlFactory = ({ IDL }) => {
           IDL.Nat,
           IDL.Text,
           IDL.Vec(IDL.Nat),
+          IDL.Text,
         ],
         [],
         [],
@@ -372,10 +403,16 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(WithdrawalRequest)],
         ['query'],
       ),
+    'getResetCode' : IDL.Func([], [IDL.Text], ['query']),
     'getTakenSlots' : IDL.Func([IDL.Nat], [IDL.Vec(IDL.Nat)], ['query']),
     'getTournament' : IDL.Func([IDL.Nat], [IDL.Opt(Tournament)], ['query']),
     'getTournaments' : IDL.Func([], [IDL.Vec(Tournament)], ['query']),
     'getTransactionHistory' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
+    'getUserByLegendId' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Opt(IDL.Tuple(IDL.Principal, ExtendedUserProfile))],
+        [],
+      ),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(ExtendedUserProfile)],
@@ -383,9 +420,19 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'joinTournament' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
+    'login' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Variant({ 'ok' : ExtendedUserProfile, 'err' : IDL.Text })],
+        [],
+      ),
     'postScores' : IDL.Func(
         [IDL.Nat, IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Nat))],
         [],
+        [],
+      ),
+    'registerAccount' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
         [],
       ),
     'registerUser' : IDL.Func(
@@ -395,8 +442,15 @@ export const idlFactory = ({ IDL }) => {
       ),
     'rejectDepositRequest' : IDL.Func([IDL.Nat], [], []),
     'rejectWithdrawalRequest' : IDL.Func([IDL.Nat], [], []),
+    'removeCoinsByLegendId' : IDL.Func([IDL.Nat, IDL.Nat], [], []),
+    'resetPassword' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Variant({ 'ok' : IDL.Null, 'err' : IDL.Text })],
+        [],
+      ),
     'saveCallerUserProfile' : IDL.Func([ExtendedUserProfile], [], []),
     'setPaymentNumbers' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'setResetCode' : IDL.Func([IDL.Text], [], []),
     'setUsername' : IDL.Func([IDL.Text], [], []),
     'submitDepositRequest' : IDL.Func(
         [
