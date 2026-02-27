@@ -101,9 +101,15 @@ export interface LeaderboardEntry {
     score: bigint;
     tournamentId: bigint;
 }
-export interface Category {
-    id: bigint;
-    name: string;
+export interface ExtendedUserProfile {
+    inGameName: string;
+    username: string;
+    balance: bigint;
+    referCode: string;
+    mobileNo: string;
+    fullName: string;
+    email: string;
+    gameUID: string;
 }
 export type Time = bigint;
 export interface GlobalLeaderboardEntry {
@@ -144,9 +150,9 @@ export interface PaymentNumbers {
     easyPaisa: string;
     jazzCash: string;
 }
-export interface UserProfile {
-    username: string;
-    balance: bigint;
+export interface Category {
+    id: bigint;
+    name: string;
 }
 export enum TournamentStatus {
     active = "active",
@@ -181,9 +187,10 @@ export interface backendInterface {
     createCategory(name: string): Promise<void>;
     createTournament(title: string, categoryId: bigint, entryFee: bigint, prizePool: bigint, totalSlots: bigint, rules: string, prizeDistribution: Array<bigint>): Promise<void>;
     getAllDepositRequests(): Promise<Array<DepositRequest>>;
+    getAllUsers(): Promise<Array<[Principal, ExtendedUserProfile]>>;
     getAllWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
     getCallerDepositRequests(): Promise<Array<DepositRequest>>;
-    getCallerUserProfile(): Promise<UserProfile | null>;
+    getCallerUserProfile(): Promise<ExtendedUserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCallerWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
     getCategories(): Promise<Array<Category>>;
@@ -196,19 +203,21 @@ export interface backendInterface {
     getTournament(id: bigint): Promise<Tournament | null>;
     getTournaments(): Promise<Array<Tournament>>;
     getTransactionHistory(): Promise<Array<Transaction>>;
-    getUserProfile(user: Principal): Promise<UserProfile | null>;
+    getUserProfile(user: Principal): Promise<ExtendedUserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     joinTournament(tournamentId: bigint, slotNumber: bigint): Promise<void>;
     postScores(tournamentId: bigint, scores: Array<[Principal, bigint]>): Promise<void>;
+    registerUser(fullName: string, inGameName: string, gameUID: string, mobileNo: string, email: string, referCode: string): Promise<void>;
     rejectDepositRequest(requestId: bigint): Promise<void>;
     rejectWithdrawalRequest(requestId: bigint): Promise<void>;
-    saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    saveCallerUserProfile(profile: ExtendedUserProfile): Promise<void>;
     setPaymentNumbers(jazzCash: string, easyPaisa: string): Promise<void>;
     setUsername(username: string): Promise<void>;
     submitDepositRequest(amount: bigint, paymentMethod: Variant_easyPaisa_jazzCash, transactionReference: string): Promise<bigint>;
     submitWithdrawalRequest(amount: bigint): Promise<bigint>;
+    updateUserInfo(fullName: string, inGameName: string, gameUID: string, mobileNo: string, email: string): Promise<void>;
 }
-import type { DepositRequest as _DepositRequest, Time as _Time, Tournament as _Tournament, TournamentStatus as _TournamentStatus, Transaction as _Transaction, UserProfile as _UserProfile, UserRole as _UserRole, WithdrawalRequest as _WithdrawalRequest } from "./declarations/backend.did.d.ts";
+import type { DepositRequest as _DepositRequest, ExtendedUserProfile as _ExtendedUserProfile, Time as _Time, Tournament as _Tournament, TournamentStatus as _TournamentStatus, Transaction as _Transaction, UserRole as _UserRole, WithdrawalRequest as _WithdrawalRequest } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async _initializeAccessControlWithSecret(arg0: string): Promise<void> {
@@ -323,6 +332,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getAllUsers(): Promise<Array<[Principal, ExtendedUserProfile]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllUsers();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllUsers();
+            return result;
+        }
+    }
     async getAllWithdrawalRequests(): Promise<Array<WithdrawalRequest>> {
         if (this.processError) {
             try {
@@ -351,7 +374,7 @@ export class Backend implements backendInterface {
             return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getCallerUserProfile(): Promise<UserProfile | null> {
+    async getCallerUserProfile(): Promise<ExtendedUserProfile | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.getCallerUserProfile();
@@ -533,7 +556,7 @@ export class Backend implements backendInterface {
             return from_candid_vec_n20(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
+    async getUserProfile(arg0: Principal): Promise<ExtendedUserProfile | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.getUserProfile(arg0);
@@ -589,6 +612,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async registerUser(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.registerUser(arg0, arg1, arg2, arg3, arg4, arg5);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.registerUser(arg0, arg1, arg2, arg3, arg4, arg5);
+            return result;
+        }
+    }
     async rejectDepositRequest(arg0: bigint): Promise<void> {
         if (this.processError) {
             try {
@@ -617,7 +654,7 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
+    async saveCallerUserProfile(arg0: ExtendedUserProfile): Promise<void> {
         if (this.processError) {
             try {
                 const result = await this.actor.saveCallerUserProfile(arg0);
@@ -687,6 +724,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async updateUserInfo(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateUserInfo(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateUserInfo(arg0, arg1, arg2, arg3, arg4);
+            return result;
+        }
+    }
 }
 function from_candid_DepositRequest_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _DepositRequest): DepositRequest {
     return from_candid_record_n5(_uploadFile, _downloadFile, value);
@@ -706,7 +757,7 @@ function from_candid_UserRole_n12(_uploadFile: (file: ExternalBlob) => Promise<U
 function from_candid_WithdrawalRequest_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _WithdrawalRequest): WithdrawalRequest {
     return from_candid_record_n10(_uploadFile, _downloadFile, value);
 }
-function from_candid_opt_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
+function from_candid_opt_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_ExtendedUserProfile]): ExtendedUserProfile | null {
     return value.length === 0 ? null : value[0];
 }
 function from_candid_opt_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Tournament]): Tournament | null {

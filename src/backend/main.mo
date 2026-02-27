@@ -7,7 +7,9 @@ import Runtime "mo:core/Runtime";
 import Nat "mo:core/Nat";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
@@ -52,8 +54,14 @@ actor {
     score : Nat;
   };
 
-  type UserProfile = {
+  type ExtendedUserProfile = {
     username : Text;
+    fullName : Text;
+    inGameName : Text;
+    gameUID : Text;
+    mobileNo : Text;
+    email : Text;
+    referCode : Text;
     balance : Nat;
   };
 
@@ -119,7 +127,7 @@ actor {
   let slots = Map.empty<(Nat, Nat), Principal>();
   let transactions = Map.empty<Principal, List.List<Transaction>>();
   let leaderboards = Map.empty<Nat, List.List<LeaderboardEntry>>();
-  let userProfiles = Map.empty<Principal, UserProfile>();
+  let userProfiles = Map.empty<Principal, ExtendedUserProfile>();
 
   let depositRequests = Map.empty<Nat, DepositRequest>();
   let withdrawalRequests = Map.empty<Nat, WithdrawalRequest>();
@@ -127,6 +135,74 @@ actor {
   var paymentNumbers : PaymentNumbers = {
     jazzCash = "";
     easyPaisa = "";
+  };
+
+  // User Management
+  // TASK 1 & 2: Extend UserProfile and Register function
+  public shared ({ caller }) func registerUser(
+    fullName : Text,
+    inGameName : Text,
+    gameUID : Text,
+    mobileNo : Text,
+    email : Text,
+    referCode : Text,
+  ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can register");
+    };
+
+    let username = "";
+    let balance : Nat = 0;
+
+    let newProfile : ExtendedUserProfile = {
+      username;
+      fullName;
+      inGameName;
+      gameUID;
+      mobileNo;
+      email;
+      referCode;
+      balance;
+    };
+
+    userProfiles.add(caller, newProfile);
+  };
+
+  // TASK 3: Update User Info
+  public shared ({ caller }) func updateUserInfo(
+    fullName : Text,
+    inGameName : Text,
+    gameUID : Text,
+    mobileNo : Text,
+    email : Text,
+  ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can update info");
+    };
+
+    switch (userProfiles.get(caller)) {
+      case (null) { Runtime.trap("User profile not found") };
+      case (?profile) {
+        let updatedProfile = {
+          profile with
+          fullName;
+          inGameName;
+          gameUID;
+          mobileNo;
+          email;
+        };
+        userProfiles.add(caller, updatedProfile);
+      };
+    };
+  };
+
+  // TASK 4: Admin Function to get all users
+  public shared ({ caller }) func getAllUsers() : async [(Principal, ExtendedUserProfile)] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view all users");
+    };
+    let entries = userProfiles.entries().toArray();
+    entries;
   };
 
   // Category Management
@@ -670,21 +746,21 @@ actor {
   };
 
   // User Profile Management - Following the required interface
-  public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
+  public query ({ caller }) func getCallerUserProfile() : async ?ExtendedUserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view profiles");
     };
     userProfiles.get(caller);
   };
 
-  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
+  public query ({ caller }) func getUserProfile(user : Principal) : async ?ExtendedUserProfile {
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own profile");
     };
     userProfiles.get(user);
   };
 
-  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
+  public shared ({ caller }) func saveCallerUserProfile(profile : ExtendedUserProfile) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can save profiles");
     };
@@ -699,8 +775,14 @@ actor {
 
     switch (userProfiles.get(caller)) {
       case (null) {
-        let profile : UserProfile = {
+        let profile : ExtendedUserProfile = {
           username;
+          fullName = "";
+          inGameName = "";
+          gameUID = "";
+          mobileNo = "";
+          email = "";
+          referCode = "";
           balance = 0;
         };
         userProfiles.add(caller, profile);

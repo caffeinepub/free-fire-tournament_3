@@ -16,6 +16,7 @@ import {
   useRejectDepositRequest,
   useApproveWithdrawalRequest,
   useRejectWithdrawalRequest,
+  useGetAllUsers,
 } from "../hooks/useQueries";
 import { UserRole, Variant_easyPaisa_jazzCash } from "../backend.d";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Plus, Shield, Swords, Users, Coins, Star, CreditCard, ArrowDownLeft, ArrowUpRight, Clock } from "lucide-react";
+import { ArrowLeft, Plus, Shield, Swords, Users, Coins, Star, CreditCard, ArrowDownLeft, ArrowUpRight, Clock, User, Mail, Phone, Gamepad2, Hash } from "lucide-react";
 import { toast } from "sonner";
 import { Principal } from "@icp-sdk/core/principal";
 
@@ -72,6 +73,7 @@ export default function AdminPage() {
   const { data: paymentNumbers } = useGetPaymentNumbers();
   const { data: pendingDeposits, isLoading: depositLoading } = useGetPendingDepositRequests();
   const { data: pendingWithdrawals, isLoading: withdrawalLoading } = useGetPendingWithdrawalRequests();
+  const { data: allUsers, isLoading: usersLoading } = useGetAllUsers();
 
   const createCategoryMutation = useCreateCategory();
   const createTournamentMutation = useCreateTournament();
@@ -796,6 +798,107 @@ export default function AdminPage() {
           >
             {addCoinsMutation.isPending ? "Adding..." : "ADD COINS"}
           </Button>
+        </SectionCard>
+
+        {/* All Users */}
+        <SectionCard title="REGISTERED USERS" icon={Users}>
+          {usersLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <div
+                className="w-6 h-6 border-2 rounded-full animate-spin"
+                style={{ borderColor: "oklch(0.72 0.22 45)", borderTopColor: "transparent" }}
+              />
+            </div>
+          ) : !allUsers || allUsers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-6 gap-2">
+              <Users className="w-8 h-8 text-muted-foreground/30" />
+              <p className="text-sm font-body text-muted-foreground">No registered users yet</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div
+                className="text-[11px] font-display font-bold tracking-wider px-1"
+                style={{ color: "oklch(0.72 0.22 45)" }}
+              >
+                {allUsers.length} USER{allUsers.length !== 1 ? "S" : ""}
+              </div>
+              {allUsers.map(([principal, profile]) => (
+                <div
+                  key={principal.toString()}
+                  className="rounded-xl p-3 flex flex-col gap-2"
+                  style={{ background: "oklch(0.14 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
+                >
+                  {/* Header row */}
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-bold text-sm shrink-0"
+                      style={{
+                        background: "linear-gradient(135deg, oklch(0.72 0.22 45 / 0.2), oklch(0.65 0.25 35 / 0.2))",
+                        border: "1px solid oklch(0.72 0.22 45 / 0.3)",
+                        color: "oklch(0.72 0.22 45)",
+                      }}
+                    >
+                      {(profile.fullName || profile.username || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-display font-bold text-foreground truncate">
+                        {profile.fullName || profile.username || "Unknown"}
+                      </span>
+                      <span className="text-[10px] font-mono-game text-muted-foreground truncate">
+                        {truncatePrincipal(principal)}
+                      </span>
+                    </div>
+                    <div
+                      className="ml-auto shrink-0 text-[10px] font-display font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: "oklch(0.82 0.18 85 / 0.12)",
+                        color: "oklch(0.82 0.18 85)",
+                        border: "1px solid oklch(0.82 0.18 85 / 0.3)",
+                      }}
+                    >
+                      {profile.balance.toString()} coins
+                    </div>
+                  </div>
+
+                  {/* Detail grid */}
+                  <div className="grid grid-cols-1 gap-1 pt-1" style={{ borderTop: "1px solid oklch(0.2 0.02 240)" }}>
+                    {profile.inGameName && (
+                      <div className="flex items-center gap-2">
+                        <Gamepad2 className="w-3 h-3 shrink-0" style={{ color: "oklch(0.72 0.22 45)" }} />
+                        <span className="text-[11px] font-body" style={{ color: "oklch(0.75 0.01 240)" }}>
+                          {profile.inGameName}
+                        </span>
+                        {profile.gameUID && (
+                          <>
+                            <Hash className="w-3 h-3 shrink-0 ml-2" style={{ color: "oklch(0.55 0.02 240)" }} />
+                            <span className="text-[11px] font-mono-game" style={{ color: "oklch(0.6 0.01 240)" }}>
+                              {profile.gameUID}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {profile.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3 h-3 shrink-0" style={{ color: "oklch(0.55 0.02 240)" }} />
+                        <span className="text-[11px] font-body truncate" style={{ color: "oklch(0.65 0.01 240)" }}>
+                          {profile.email}
+                        </span>
+                      </div>
+                    )}
+                    {profile.mobileNo && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3 h-3 shrink-0" style={{ color: "oklch(0.55 0.02 240)" }} />
+                        <span className="text-[11px] font-mono-game" style={{ color: "oklch(0.65 0.01 240)" }}>
+                          +92 {profile.mobileNo}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
       </div>
 

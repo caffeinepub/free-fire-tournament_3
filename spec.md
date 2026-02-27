@@ -1,38 +1,38 @@
 # Free Fire Tournament
 
 ## Current State
-- Bottom nav has 3 items: Home, Wallet, Profile
-- Leaderboard exists only per-tournament (inside MatchDetailPage as a side tab)
-- No global leaderboard page/route
-- Backend has `getLeaderboard(tournamentId)` (per-tournament scores) but no global ranking
+App uses Internet Identity for authentication. Users are identified by Principal ID. Profile page shows username, balance, tournaments, and a "COPY MY ID" button. No custom registration form exists.
 
 ## Requested Changes (Diff)
 
 ### Add
-- New `/leaderboard` route and `LeaderboardPage` component showing Top 100 players globally
-- Backend `getGlobalLeaderboard` query that aggregates all leaderboard entries per player (total score across all tournaments) and returns top 100 sorted by total score descending, with username included
-- New `useGetGlobalLeaderboard` query hook
-- Leaderboard nav item (Trophy icon) in BottomNav, placed **between** Wallet and Profile
+- Custom registration form with fields: Full Name, In-Game Name, Game UID (optional), Mobile No. (+92 prefix), Email Address, Password, Confirm Password, Refer Code (optional), Privacy Policy checkbox
+- Login form with Email + Password
+- User profile extended to store: fullName, inGameName, gameUID, mobileNo, email, referCode
+- Backend: register user with email/password (hashed), login returns session token stored in profile
+- Admin can view all registered users with their details (fullName, email, mobileNo, inGameName, gameUID)
 
 ### Modify
-- `BottomNav.tsx`: Insert Leaderboard nav item between Wallet and Profile (4 items total: Home, Wallet, Leaderboard, Profile)
-- `App.tsx`: Add `/leaderboard` route pointing to LeaderboardPage
-- `useQueries.ts`: Add `useGetGlobalLeaderboard` hook
+- Auth flow: replace Internet Identity login screen with custom Email/Password login + Register screen
+- Keep Internet Identity as the underlying identity mechanism but show a custom UI form on top -- store registration data linked to Principal
+- Profile page: show fullName, inGameName, gameUID, mobileNo, email fields (editable)
+- Admin Panel: add "Users" section listing all registered users with their info
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Add `getGlobalLeaderboard` to backend — returns array of `{ player: Principal, username: Text, totalScore: Nat, totalWinnings: Nat }` sorted by totalScore desc, capped at 100
-2. Regenerate backend bindings
-3. Add `useGetGlobalLeaderboard` hook to `useQueries.ts`
-4. Create `src/frontend/src/pages/LeaderboardPage.tsx` — ranked list with rank badge, username, total score/winnings
-5. Update `BottomNav.tsx` — add Trophy icon between Wallet and Profile
-6. Update `App.tsx` — add leaderboardRoute
+1. Extend UserProfile backend type to include fullName, inGameName, gameUID, mobileNo, email, referCode fields
+2. Add registerUser function that saves extended profile
+3. Add getUsersList for admin to view all users
+4. Update AuthPage to show custom Register/Login forms (still uses Internet Identity under the hood for identity, but collects user info on first login)
+5. Update ProfilePage to show and allow editing of extended profile fields
+6. Update AdminPage to show Users tab with all registered users
 
 ## UX Notes
-- Leaderboard icon: Trophy (lucide-react)
-- Top 3 players get gold/silver/bronze rank badges
-- Show rank number, username, total winnings (coins), total score
-- Loading skeleton while fetching
-- Empty state if no scores posted yet
+- Registration form style: dark background, orange accents (matching existing app theme)
+- Mobile No. field has +92 prefix (Pakistan)
+- Password field has show/hide toggle
+- "Already have an Account" link at bottom
+- On successful registration, user is taken to Home page
+- Internet Identity login still happens silently in background (needed for ICP) -- custom form collects display info

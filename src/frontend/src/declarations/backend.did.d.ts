@@ -23,6 +23,16 @@ export interface DepositRequest {
   'timestamp' : Time,
   'amount' : bigint,
 }
+export interface ExtendedUserProfile {
+  'inGameName' : string,
+  'username' : string,
+  'balance' : bigint,
+  'referCode' : string,
+  'mobileNo' : string,
+  'fullName' : string,
+  'email' : string,
+  'gameUID' : string,
+}
 export interface GlobalLeaderboardEntry {
   'username' : string,
   'player' : Principal,
@@ -60,7 +70,6 @@ export interface Transaction {
   'timestamp' : Time,
   'amount' : bigint,
 }
-export interface UserProfile { 'username' : string, 'balance' : bigint }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
@@ -85,9 +94,10 @@ export interface _SERVICE {
     undefined
   >,
   'getAllDepositRequests' : ActorMethod<[], Array<DepositRequest>>,
+  'getAllUsers' : ActorMethod<[], Array<[Principal, ExtendedUserProfile]>>,
   'getAllWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
   'getCallerDepositRequests' : ActorMethod<[], Array<DepositRequest>>,
-  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [ExtendedUserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCallerWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
   'getCategories' : ActorMethod<[], Array<Category>>,
@@ -100,13 +110,17 @@ export interface _SERVICE {
   'getTournament' : ActorMethod<[bigint], [] | [Tournament]>,
   'getTournaments' : ActorMethod<[], Array<Tournament>>,
   'getTransactionHistory' : ActorMethod<[], Array<Transaction>>,
-  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [ExtendedUserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'joinTournament' : ActorMethod<[bigint, bigint], undefined>,
   'postScores' : ActorMethod<[bigint, Array<[Principal, bigint]>], undefined>,
+  'registerUser' : ActorMethod<
+    [string, string, string, string, string, string],
+    undefined
+  >,
   'rejectDepositRequest' : ActorMethod<[bigint], undefined>,
   'rejectWithdrawalRequest' : ActorMethod<[bigint], undefined>,
-  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'saveCallerUserProfile' : ActorMethod<[ExtendedUserProfile], undefined>,
   'setPaymentNumbers' : ActorMethod<[string, string], undefined>,
   'setUsername' : ActorMethod<[string], undefined>,
   'submitDepositRequest' : ActorMethod<
@@ -114,6 +128,10 @@ export interface _SERVICE {
     bigint
   >,
   'submitWithdrawalRequest' : ActorMethod<[bigint], bigint>,
+  'updateUserInfo' : ActorMethod<
+    [string, string, string, string, string],
+    undefined
+  >,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

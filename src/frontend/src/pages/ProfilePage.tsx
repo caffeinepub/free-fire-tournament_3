@@ -48,9 +48,12 @@ export default function ProfilePage() {
     }
   };
 
-  const initials = (userProfile?.username ?? "?")
+  const displayName =
+    userProfile?.fullName?.trim() || userProfile?.username?.trim() || "Unknown Player";
+
+  const initials = displayName
     .split(" ")
-    .map((w) => w[0])
+    .map((w: string) => w[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
@@ -66,7 +69,7 @@ export default function ProfilePage() {
   };
 
   const handleStartEdit = () => {
-    setUsernameInput(userProfile?.username ?? "");
+    setUsernameInput(userProfile?.inGameName || userProfile?.username || "");
     setEditingUsername(true);
   };
 
@@ -207,7 +210,7 @@ export default function ProfilePage() {
         ) : (
           <div className="flex items-center gap-2">
             <span className="font-display font-bold text-xl text-foreground">
-              {userProfile?.username || "Unknown Player"}
+              {displayName}
             </span>
             <button
               type="button"
@@ -272,6 +275,56 @@ export default function ProfilePage() {
             <span className="text-[10px] font-body text-muted-foreground">TOURNAMENTS</span>
           </div>
         </div>
+
+        {/* Extended profile info */}
+        {(userProfile?.inGameName || userProfile?.email || userProfile?.mobileNo || userProfile?.gameUID) && (
+          <div
+            className="w-full rounded-xl overflow-hidden"
+            style={{ border: "1px solid oklch(0.2 0.02 240)" }}
+          >
+            {userProfile?.inGameName && (
+              <div
+                className="flex items-center justify-between px-3 py-2.5"
+                style={{ borderBottom: "1px solid oklch(0.17 0.02 240)" }}
+              >
+                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">IN-GAME NAME</span>
+                <span className="text-xs font-display font-bold" style={{ color: "oklch(0.72 0.22 45)" }}>
+                  {userProfile.inGameName}
+                </span>
+              </div>
+            )}
+            {userProfile?.gameUID && (
+              <div
+                className="flex items-center justify-between px-3 py-2.5"
+                style={{ borderBottom: "1px solid oklch(0.17 0.02 240)" }}
+              >
+                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">GAME UID</span>
+                <span className="text-xs font-mono-game" style={{ color: "oklch(0.8 0.01 240)" }}>
+                  {userProfile.gameUID}
+                </span>
+              </div>
+            )}
+            {userProfile?.email && (
+              <div
+                className="flex items-center justify-between px-3 py-2.5"
+                style={{ borderBottom: "1px solid oklch(0.17 0.02 240)" }}
+              >
+                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">EMAIL</span>
+                <span className="text-xs font-body" style={{ color: "oklch(0.75 0.01 240)" }}>
+                  {userProfile.email}
+                </span>
+              </div>
+            )}
+            {userProfile?.mobileNo && (
+              <div className="flex items-center justify-between px-3 py-2.5">
+                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">MOBILE</span>
+                <span className="text-xs font-mono-game" style={{ color: "oklch(0.75 0.01 240)" }}>
+                  +92 {userProfile.mobileNo}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tournaments joined */}

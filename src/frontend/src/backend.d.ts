@@ -19,9 +19,15 @@ export interface LeaderboardEntry {
     score: bigint;
     tournamentId: bigint;
 }
-export interface Category {
-    id: bigint;
-    name: string;
+export interface ExtendedUserProfile {
+    inGameName: string;
+    username: string;
+    balance: bigint;
+    referCode: string;
+    mobileNo: string;
+    fullName: string;
+    email: string;
+    gameUID: string;
 }
 export type Time = bigint;
 export interface GlobalLeaderboardEntry {
@@ -62,9 +68,9 @@ export interface PaymentNumbers {
     easyPaisa: string;
     jazzCash: string;
 }
-export interface UserProfile {
-    username: string;
-    balance: bigint;
+export interface Category {
+    id: bigint;
+    name: string;
 }
 export enum TournamentStatus {
     active = "active",
@@ -98,9 +104,10 @@ export interface backendInterface {
     createCategory(name: string): Promise<void>;
     createTournament(title: string, categoryId: bigint, entryFee: bigint, prizePool: bigint, totalSlots: bigint, rules: string, prizeDistribution: Array<bigint>): Promise<void>;
     getAllDepositRequests(): Promise<Array<DepositRequest>>;
+    getAllUsers(): Promise<Array<[Principal, ExtendedUserProfile]>>;
     getAllWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
     getCallerDepositRequests(): Promise<Array<DepositRequest>>;
-    getCallerUserProfile(): Promise<UserProfile | null>;
+    getCallerUserProfile(): Promise<ExtendedUserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCallerWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
     getCategories(): Promise<Array<Category>>;
@@ -113,15 +120,17 @@ export interface backendInterface {
     getTournament(id: bigint): Promise<Tournament | null>;
     getTournaments(): Promise<Array<Tournament>>;
     getTransactionHistory(): Promise<Array<Transaction>>;
-    getUserProfile(user: Principal): Promise<UserProfile | null>;
+    getUserProfile(user: Principal): Promise<ExtendedUserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     joinTournament(tournamentId: bigint, slotNumber: bigint): Promise<void>;
     postScores(tournamentId: bigint, scores: Array<[Principal, bigint]>): Promise<void>;
+    registerUser(fullName: string, inGameName: string, gameUID: string, mobileNo: string, email: string, referCode: string): Promise<void>;
     rejectDepositRequest(requestId: bigint): Promise<void>;
     rejectWithdrawalRequest(requestId: bigint): Promise<void>;
-    saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    saveCallerUserProfile(profile: ExtendedUserProfile): Promise<void>;
     setPaymentNumbers(jazzCash: string, easyPaisa: string): Promise<void>;
     setUsername(username: string): Promise<void>;
     submitDepositRequest(amount: bigint, paymentMethod: Variant_easyPaisa_jazzCash, transactionReference: string): Promise<bigint>;
     submitWithdrawalRequest(amount: bigint): Promise<bigint>;
+    updateUserInfo(fullName: string, inGameName: string, gameUID: string, mobileNo: string, email: string): Promise<void>;
 }

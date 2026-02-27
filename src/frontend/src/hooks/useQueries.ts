@@ -182,9 +182,36 @@ export function useSaveCallerUserProfile() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ username, balance }: { username: string; balance: bigint }) => {
+    mutationFn: async ({
+      username,
+      balance,
+      fullName = "",
+      inGameName = "",
+      gameUID = "",
+      mobileNo = "",
+      email = "",
+      referCode = "",
+    }: {
+      username: string;
+      balance: bigint;
+      fullName?: string;
+      inGameName?: string;
+      gameUID?: string;
+      mobileNo?: string;
+      email?: string;
+      referCode?: string;
+    }) => {
       if (!actor) throw new Error("Actor not available");
-      return actor.saveCallerUserProfile({ username, balance });
+      return actor.saveCallerUserProfile({
+        username,
+        balance,
+        fullName,
+        inGameName,
+        gameUID,
+        mobileNo,
+        email,
+        referCode,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["currentUserProfile"] });
@@ -506,6 +533,73 @@ export function useAssignCallerUserRole() {
     mutationFn: async ({ user, role }: { user: Principal; role: UserRole }) => {
       if (!actor) throw new Error("Actor not available");
       return actor.assignCallerUserRole(user, role);
+    },
+  });
+}
+
+export function useRegisterUser() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      fullName: string;
+      inGameName: string;
+      gameUID: string;
+      mobileNo: string;
+      email: string;
+      referCode: string;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.registerUser(
+        params.fullName,
+        params.inGameName,
+        params.gameUID,
+        params.mobileNo,
+        params.email,
+        params.referCode
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["currentUserProfile"] });
+    },
+  });
+}
+
+export function useGetAllUsers() {
+  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery({
+    queryKey: ["allUsers"],
+    queryFn: async () => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.getAllUsers();
+    },
+    enabled: !!actor && !actorFetching,
+    retry: false,
+  });
+}
+
+export function useUpdateUserInfo() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      fullName: string;
+      inGameName: string;
+      gameUID: string;
+      mobileNo: string;
+      email: string;
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.updateUserInfo(
+        params.fullName,
+        params.inGameName,
+        params.gameUID,
+        params.mobileNo,
+        params.email
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["currentUserProfile"] });
     },
   });
 }
