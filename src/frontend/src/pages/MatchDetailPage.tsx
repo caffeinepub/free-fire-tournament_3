@@ -203,7 +203,8 @@ function DetailsTab({
   const { data: takenSlots, isLoading: slotsLoading } = useGetTakenSlots(tournamentId);
 
   const isActive = status === TournamentStatus.active;
-  const canJoin = isActive && isLoggedIn;
+  const isUpcoming = status === TournamentStatus.upcoming;
+  const canJoin = (isActive || isUpcoming) && isLoggedIn;
 
   const mySlot = null; // Would need per-user slot tracking from backend
 
@@ -274,15 +275,27 @@ function DetailsTab({
         </div>
       )}
 
-      {isLoggedIn && !isActive && (
+      {isLoggedIn && !isActive && !isUpcoming && (
         <div
           className="rounded-xl p-4 text-center"
           style={{ background: "oklch(0.14 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
         >
           <p className="text-muted-foreground text-sm font-body">
-            {status === TournamentStatus.upcoming
-              ? "Tournament hasn't started yet"
-              : "Tournament has ended"}
+            Tournament has ended
+          </p>
+        </div>
+      )}
+      {isLoggedIn && isUpcoming && (
+        <div
+          className="rounded-xl p-3 flex items-center gap-2"
+          style={{
+            background: "oklch(0.14 0.03 50)",
+            border: "1px solid oklch(0.72 0.22 45 / 0.3)",
+          }}
+        >
+          <Clock className="w-4 h-4 shrink-0" style={{ color: "oklch(0.72 0.22 45)" }} />
+          <p className="text-sm font-body" style={{ color: "oklch(0.72 0.22 45)" }}>
+            Match starts soon -- select your slot and wait!
           </p>
         </div>
       )}
@@ -394,6 +407,8 @@ export default function MatchDetailPage() {
   )?.name ?? "";
 
   const isActive = tournament?.status === TournamentStatus.active;
+  const isUpcoming = tournament?.status === TournamentStatus.upcoming;
+  const canJoinNow = isActive || isUpcoming; // allow slot reservation for upcoming too
   const isLoggedIn = isAuthenticated;
   const hasEnoughBalance = userProfile && tournament
     ? userProfile.balance >= tournament.entryFee
@@ -404,12 +419,8 @@ export default function MatchDetailPage() {
       toast.error("Please sign in to join");
       return;
     }
-    if (!isActive) {
-      toast.error(
-        tournament?.status === TournamentStatus.upcoming
-          ? "Tournament hasn't started yet"
-          : "Tournament has ended"
-      );
+    if (!canJoinNow) {
+      toast.error("Tournament has ended");
       return;
     }
     if (!hasEnoughBalance) {
@@ -424,7 +435,11 @@ export default function MatchDetailPage() {
     }
     try {
       await joinMutation.mutateAsync({ tournamentId, slotNumber: selectedSlot });
-      toast.success(`Joined slot #${selectedSlot}! Good luck!`);
+      if (isUpcoming) {
+        toast.success(`Slot #${selectedSlot} reserved! You're in -- wait for the match to start!`);
+      } else {
+        toast.success(`Joined slot #${selectedSlot}! Good luck!`);
+      }
       setSelectedSlot(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to join tournament";
@@ -680,25 +695,7 @@ export default function MatchDetailPage() {
           )}
 
           {/* ── The button itself — appearance changes per tournament status ── */}
-          {tournament.status === TournamentStatus.upcoming ? (
-            /* UPCOMING — grey "COMING SOON" */
-            <button
-              type="button"
-              onClick={handleJoin}
-              className="w-full h-12 rounded-xl font-display font-black text-base tracking-[0.2em] uppercase flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97]"
-              style={{
-                position: "relative",
-                zIndex: 1,
-                background: "linear-gradient(135deg, oklch(0.22 0.02 240), oklch(0.18 0.015 240))",
-                color: "oklch(0.55 0.04 240)",
-                border: "1px solid oklch(0.30 0.02 240)",
-                animation: "comingSoonPulse 2s ease-in-out infinite",
-              }}
-            >
-              <Clock className="w-4 h-4 shrink-0" />
-              COMING SOON
-            </button>
-          ) : tournament.status === TournamentStatus.completed ? (
+          {tournament.status === TournamentStatus.completed ? (
             /* COMPLETED — dark "ENDED" */
             <button
               type="button"
