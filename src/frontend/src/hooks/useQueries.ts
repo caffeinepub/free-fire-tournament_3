@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { useActor } from "./useActor";
 import type { Principal } from "@icp-sdk/core/principal";
 import type { UserRole } from "../backend.d";
@@ -7,6 +8,13 @@ import type { UserRole } from "../backend.d";
 
 export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
+  const [timedOut, setTimedOut] = useState(false);
+
+  // After 4 seconds, stop blocking the app on actor loading — always show content
+  useEffect(() => {
+    const timer = setTimeout(() => setTimedOut(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const query = useQuery({
     queryKey: ["currentUserProfile"],
@@ -18,10 +26,13 @@ export function useGetCallerUserProfile() {
     retry: false,
   });
 
+  // If timed out, pretend we're no longer loading so the app always shows content
+  const isLoading = timedOut ? false : (actorFetching || query.isLoading);
+
   return {
     ...query,
-    isLoading: actorFetching || query.isLoading,
-    isFetched: !!actor && query.isFetched,
+    isLoading,
+    isFetched: timedOut ? true : (!!actor && query.isFetched),
   };
 }
 

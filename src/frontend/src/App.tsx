@@ -5,6 +5,7 @@ import {
   RouterProvider,
   Outlet,
 } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "./hooks/useQueries";
@@ -24,11 +25,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function RootLayout() {
   const { identity, isInitializing } = useInternetIdentity();
-  const { data: userProfile, isLoading: profileLoading, isFetched: profileFetched } = useGetCallerUserProfile();
+  const {
+    data: userProfile,
+    isLoading: profileLoading,
+    isFetched: profileFetched,
+    isError: profileError,
+  } = useGetCallerUserProfile();
+
+  // Timeout-based forced show: after 5s always show content no matter what
+  const [forceShow, setForceShow] = useState(false);
+  const [slowWarning, setSlowWarning] = useState(false);
+
+  useEffect(() => {
+    const warnTimer = setTimeout(() => setSlowWarning(true), 3000);
+    const forceTimer = setTimeout(() => setForceShow(true), 5000);
+    return () => {
+      clearTimeout(warnTimer);
+      clearTimeout(forceTimer);
+    };
+  }, []);
 
   const isAuthenticated = !!identity;
 
-  // Show loading screen while initializing
+  // Show loading screen while initializing auth
   if (isInitializing) {
     return (
       <div className="min-h-dvh gradient-bg flex items-center justify-center">
@@ -55,9 +74,13 @@ function RootLayout() {
     );
   }
 
-  // Still fetching profile after auth
+  // Show content: not loading, OR error occurred, OR fetch completed, OR timeout hit
+  // Both useGetCallerUserProfile (4s) AND forceShow (5s) timeouts ensure we never get stuck
+  const showContent = !profileLoading || !!profileError || profileFetched || forceShow;
+
+  // Show profile setup only when we know profile is definitively null (not just loading)
   const showProfileSetup =
-    isAuthenticated && !profileLoading && profileFetched && userProfile === null;
+    isAuthenticated && showContent && !profileError && profileFetched && userProfile === null;
 
   return (
     <div className="gradient-bg min-h-dvh">
@@ -72,14 +95,19 @@ function RootLayout() {
           className="flex-1 overflow-y-auto"
           style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom, 8px))" }}
         >
-          {profileLoading ? (
-            <div className="flex flex-col gap-3 p-4">
+          {!showContent ? (
+            <div className="flex flex-col gap-3 p-4 animate-pulse">
               <Skeleton className="h-8 w-1/2 bg-muted/50 rounded" />
               <div className="grid grid-cols-2 gap-3">
                 {[0, 1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-32 bg-muted/50 rounded-xl" />
                 ))}
               </div>
+              {slowWarning && (
+                <p className="text-center text-xs text-muted-foreground/60 mt-2 animate-fade-in">
+                  Taking longer than usual...
+                </p>
+              )}
             </div>
           ) : (
             <Outlet />

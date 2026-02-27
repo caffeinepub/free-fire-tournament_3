@@ -20,6 +20,8 @@ import {
   Trophy,
   Shield,
   ChevronRight,
+  Copy,
+  CheckCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,13 +29,24 @@ export default function ProfilePage() {
   const { identity, clear } = useInternetIdentity();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
+  const { data: userProfile, isLoading: profileLoading, isError: profileError } = useGetCallerUserProfile();
   const { data: transactions } = useGetTransactionHistory();
   const { data: isAdmin } = useIsCallerAdmin();
   const setUsernameMutation = useSetUsername();
 
   const [editingUsername, setEditingUsername] = useState(false);
   const [usernameInput, setUsernameInput] = useState("");
+  const [idCopied, setIdCopied] = useState(false);
+
+  const handleCopyId = () => {
+    if (principal) {
+      navigator.clipboard.writeText(principal).then(() => {
+        setIdCopied(true);
+        toast.success("Principal ID copied!");
+        setTimeout(() => setIdCopied(false), 2000);
+      });
+    }
+  };
 
   const initials = (userProfile?.username ?? "?")
     .split(" ")
@@ -80,6 +93,44 @@ export default function ProfilePage() {
   const shortPrincipal = principal
     ? `${principal.slice(0, 8)}...${principal.slice(-6)}`
     : "";
+
+  // Profile loading state
+  if (profileLoading) {
+    return (
+      <div className="flex flex-col gap-4 p-4 animate-pulse">
+        <Skeleton className="h-64 w-full bg-muted/50 rounded-2xl" />
+        <div className="grid grid-cols-2 gap-3">
+          <Skeleton className="h-20 w-full bg-muted/50 rounded-xl" />
+          <Skeleton className="h-20 w-full bg-muted/50 rounded-xl" />
+        </div>
+        <Skeleton className="h-12 w-full bg-muted/50 rounded-xl" />
+      </div>
+    );
+  }
+
+  // Profile error state
+  if (profileError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 p-4">
+        <Shield className="w-10 h-10" style={{ color: "oklch(0.45 0.02 240)" }} />
+        <p className="text-sm font-body text-center" style={{ color: "oklch(0.55 0.02 240)" }}>
+          Could not load profile. Please refresh the page.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 rounded-lg text-sm font-display font-bold tracking-wider transition-colors"
+          style={{
+            background: "oklch(0.72 0.22 45 / 0.15)",
+            border: "1px solid oklch(0.72 0.22 45 / 0.4)",
+            color: "oklch(0.72 0.22 45)",
+          }}
+        >
+          REFRESH
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 p-4 animate-fade-in">
@@ -183,7 +234,22 @@ export default function ProfilePage() {
         )}
 
         {/* Principal */}
-        <p className="text-[10px] font-mono-game text-muted-foreground/60">{shortPrincipal}</p>
+        <div className="flex flex-col items-center gap-1">
+          <p className="text-[10px] font-mono-game text-muted-foreground/60">{shortPrincipal}</p>
+          <button
+            type="button"
+            onClick={handleCopyId}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-display font-bold tracking-wider transition-all"
+            style={{
+              background: idCopied ? "oklch(0.72 0.22 145 / 0.2)" : "oklch(0.72 0.22 45 / 0.15)",
+              border: idCopied ? "1px solid oklch(0.72 0.22 145 / 0.5)" : "1px solid oklch(0.72 0.22 45 / 0.4)",
+              color: idCopied ? "oklch(0.72 0.22 145)" : "oklch(0.72 0.22 45)",
+            }}
+          >
+            {idCopied ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            {idCopied ? "COPIED!" : "COPY MY ID"}
+          </button>
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 w-full mt-2">
