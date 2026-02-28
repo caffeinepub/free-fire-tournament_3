@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useGetCallerUserProfile } from "../../hooks/useQueries";
-import { useLocalAuth } from "../../hooks/useLocalAuth";
 import { Flame } from "lucide-react";
+import { useLocalAuth } from "../../hooks/useLocalAuth";
+import { useGetCallerUserProfile } from "../../hooks/useQueries";
 import { LCoinIcon } from "./LCoinIcon";
 
 export default function TopHeader() {

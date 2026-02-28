@@ -76,7 +76,8 @@ export function LCoinIcon({ size = 16, className = "" }: LCoinIconProps) {
         fontFamily: "Arial Black, Arial, sans-serif",
         letterSpacing: "0px",
         // Multi-stop authentic gold coin gradient
-        background: `radial-gradient(circle at 38% 32%, #fff7a1 0%, #ffe44d 18%, #ffd700 35%, #ffa500 60%, #c27700 80%, #7a4f00 100%)`,
+        background:
+          "radial-gradient(circle at 38% 32%, #fff7a1 0%, #ffe44d 18%, #ffd700 35%, #ffa500 60%, #c27700 80%, #7a4f00 100%)",
         color: "#3a1e00",
         textShadow: `0 ${Math.round(size * 0.04)}px 0 rgba(255,245,150,0.7), 0 -1px 0 rgba(0,0,0,0.3)`,
         // Clear coin rim/edge

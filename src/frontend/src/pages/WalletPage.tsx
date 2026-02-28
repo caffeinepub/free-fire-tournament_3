@@ -1,64 +1,83 @@
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
-  useGetCallerUserProfile,
-  useGetTransactionHistory,
-  useSubmitDepositRequest,
-  useSubmitWithdrawalRequest,
-  useGetPaymentNumbers,
-  useGetCallerDepositRequests,
-  useGetCallerWithdrawalRequests,
-} from "../hooks/useQueries";
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Copy,
+  Smartphone,
+  Swords,
+  Wallet,
+  XCircle,
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import {
   Variant_deposit_withdrawal_tournamentEntry as TxnType,
   Variant_easyPaisa_jazzCash,
   Variant_pending_approved_rejected,
 } from "../backend.d";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  ArrowUpRight,
-  ArrowDownLeft,
-  Swords,
-  Wallet,
-  Copy,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Smartphone,
-} from "lucide-react";
 import { LCoinIcon } from "../components/game/LCoinIcon";
-import { toast } from "sonner";
+import {
+  useGetCallerDepositRequests,
+  useGetCallerUserProfile,
+  useGetCallerWithdrawalRequests,
+  useGetPaymentNumbers,
+  useGetTransactionHistory,
+  useSubmitDepositRequest,
+  useSubmitWithdrawalRequest,
+} from "../hooks/useQueries";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function TxIcon({ type }: { type: TxnType }) {
-  if (type === TxnType.deposit) return <ArrowDownLeft className="w-4 h-4 neon-text-green" />;
-  if (type === TxnType.withdrawal) return <ArrowUpRight className="w-4 h-4 neon-text-red" />;
+  if (type === TxnType.deposit)
+    return <ArrowDownLeft className="w-4 h-4 neon-text-green" />;
+  if (type === TxnType.withdrawal)
+    return <ArrowUpRight className="w-4 h-4 neon-text-red" />;
   return <Swords className="w-4 h-4 neon-text-orange" />;
 }
 
 function TxLabel({ type }: { type: TxnType }) {
-  if (type === TxnType.deposit) return <span className="neon-text-green font-display font-bold text-xs">DEPOSIT</span>;
-  if (type === TxnType.withdrawal) return <span className="neon-text-red font-display font-bold text-xs">WITHDRAW</span>;
-  return <span className="neon-text-orange font-display font-bold text-xs">TOURNAMENT</span>;
+  if (type === TxnType.deposit)
+    return (
+      <span className="neon-text-green font-display font-bold text-xs">
+        DEPOSIT
+      </span>
+    );
+  if (type === TxnType.withdrawal)
+    return (
+      <span className="neon-text-red font-display font-bold text-xs">
+        WITHDRAW
+      </span>
+    );
+  return (
+    <span className="neon-text-orange font-display font-bold text-xs">
+      TOURNAMENT
+    </span>
+  );
 }
 
 function AmountDisplay({ type, amount }: { type: TxnType; amount: bigint }) {
   const isCredit = type === TxnType.deposit;
   return (
-    <span className={`font-display font-bold text-sm ${isCredit ? "neon-text-green" : "neon-text-red"}`}>
-      {isCredit ? "+" : "-"}{amount.toString()}
+    <span
+      className={`font-display font-bold text-sm ${isCredit ? "neon-text-green" : "neon-text-red"}`}
+    >
+      {isCredit ? "+" : "-"}
+      {amount.toString()}
     </span>
   );
 }
@@ -73,12 +92,18 @@ function formatDate(timestamp: bigint) {
   });
 }
 
-function StatusBadge({ status }: { status: Variant_pending_approved_rejected }) {
+function StatusBadge({
+  status,
+}: { status: Variant_pending_approved_rejected }) {
   if (status === Variant_pending_approved_rejected.pending) {
     return (
       <span
         className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-display font-bold text-[10px] tracking-wider"
-        style={{ background: "oklch(0.72 0.18 85 / 0.15)", color: "oklch(0.82 0.18 85)", border: "1px solid oklch(0.72 0.18 85 / 0.3)" }}
+        style={{
+          background: "oklch(0.72 0.18 85 / 0.15)",
+          color: "oklch(0.82 0.18 85)",
+          border: "1px solid oklch(0.72 0.18 85 / 0.3)",
+        }}
       >
         <Clock className="w-2.5 h-2.5" />
         PENDING
@@ -89,7 +114,11 @@ function StatusBadge({ status }: { status: Variant_pending_approved_rejected }) 
     return (
       <span
         className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-display font-bold text-[10px] tracking-wider"
-        style={{ background: "oklch(0.72 0.22 145 / 0.15)", color: "oklch(0.75 0.22 145)", border: "1px solid oklch(0.72 0.22 145 / 0.3)" }}
+        style={{
+          background: "oklch(0.72 0.22 145 / 0.15)",
+          color: "oklch(0.75 0.22 145)",
+          border: "1px solid oklch(0.72 0.22 145 / 0.3)",
+        }}
       >
         <CheckCircle2 className="w-2.5 h-2.5" />
         APPROVED
@@ -99,7 +128,11 @@ function StatusBadge({ status }: { status: Variant_pending_approved_rejected }) 
   return (
     <span
       className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-display font-bold text-[10px] tracking-wider"
-      style={{ background: "oklch(0.65 0.25 25 / 0.15)", color: "oklch(0.72 0.25 25)", border: "1px solid oklch(0.65 0.25 25 / 0.3)" }}
+      style={{
+        background: "oklch(0.65 0.25 25 / 0.15)",
+        color: "oklch(0.72 0.25 25)",
+        border: "1px solid oklch(0.65 0.25 25 / 0.3)",
+      }}
     >
       <XCircle className="w-2.5 h-2.5" />
       REJECTED
@@ -107,12 +140,18 @@ function StatusBadge({ status }: { status: Variant_pending_approved_rejected }) 
   );
 }
 
-function PaymentMethodBadge({ method }: { method: Variant_easyPaisa_jazzCash }) {
+function PaymentMethodBadge({
+  method,
+}: { method: Variant_easyPaisa_jazzCash }) {
   const isJazz = method === Variant_easyPaisa_jazzCash.jazzCash;
   return (
     <span
       className="inline-flex items-center px-2 py-0.5 rounded font-display font-bold text-[10px] tracking-wider"
-      style={{ background: "oklch(0.6 0.2 300 / 0.15)", color: "oklch(0.75 0.2 300)", border: "1px solid oklch(0.6 0.2 300 / 0.3)" }}
+      style={{
+        background: "oklch(0.6 0.2 300 / 0.15)",
+        color: "oklch(0.75 0.2 300)",
+        border: "1px solid oklch(0.6 0.2 300 / 0.3)",
+      }}
     >
       {isJazz ? "JAZZCASH" : "JAZZCASH"}
     </span>
@@ -136,7 +175,9 @@ function CopyButton({ text }: { text: string }) {
       onClick={handleCopy}
       className="flex items-center gap-1 px-2 py-1 rounded text-xs font-display font-bold transition-all"
       style={{
-        background: copied ? "oklch(0.72 0.22 145 / 0.2)" : "oklch(0.22 0.02 240)",
+        background: copied
+          ? "oklch(0.72 0.22 145 / 0.2)"
+          : "oklch(0.22 0.02 240)",
         color: copied ? "oklch(0.75 0.22 145)" : "oklch(0.7 0.02 240)",
         border: `1px solid ${copied ? "oklch(0.72 0.22 145 / 0.3)" : "oklch(0.28 0.02 240)"}`,
       }}
@@ -150,11 +191,18 @@ function CopyButton({ text }: { text: string }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function WalletPage() {
-  const { data: userProfile, isLoading: profileLoading, isError: profileError } = useGetCallerUserProfile();
-  const { data: transactions, isLoading: txLoading } = useGetTransactionHistory();
+  const {
+    data: userProfile,
+    isLoading: profileLoading,
+    isError: profileError,
+  } = useGetCallerUserProfile();
+  const { data: transactions, isLoading: txLoading } =
+    useGetTransactionHistory();
   const { data: paymentNumbers } = useGetPaymentNumbers();
-  const { data: depositRequests, isLoading: depositReqLoading } = useGetCallerDepositRequests();
-  const { data: withdrawalRequests, isLoading: withdrawalReqLoading } = useGetCallerWithdrawalRequests();
+  const { data: depositRequests, isLoading: depositReqLoading } =
+    useGetCallerDepositRequests();
+  const { data: withdrawalRequests, isLoading: withdrawalReqLoading } =
+    useGetCallerWithdrawalRequests();
 
   const submitDepositMutation = useSubmitDepositRequest();
   const submitWithdrawalMutation = useSubmitWithdrawalRequest();
@@ -175,7 +223,7 @@ export default function WalletPage() {
   const [showWithdrawalReqs, setShowWithdrawalReqs] = useState(false);
 
   const handleDeposit = async () => {
-    const amount = parseInt(depositAmount, 10);
+    const amount = Number.parseInt(depositAmount, 10);
     if (Number.isNaN(amount) || amount <= 0) {
       toast.error("Enter a valid amount");
       return;
@@ -190,17 +238,21 @@ export default function WalletPage() {
         paymentMethod: depositMethod,
         transactionReference: transactionRef.trim(),
       });
-      toast.success("Deposit request submitted! Admin will verify and add coins within 24 hours.");
+      toast.success(
+        "Deposit request submitted! Admin will verify and add coins within 24 hours.",
+      );
       setDepositOpen(false);
       setDepositAmount("");
       setTransactionRef("");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Deposit request failed");
+      toast.error(
+        err instanceof Error ? err.message : "Deposit request failed",
+      );
     }
   };
 
   const handleWithdraw = async () => {
-    const amount = parseInt(withdrawAmount, 10);
+    const amount = Number.parseInt(withdrawAmount, 10);
     if (Number.isNaN(amount) || amount <= 0) {
       toast.error("Enter a valid amount");
       return;
@@ -212,11 +264,15 @@ export default function WalletPage() {
     }
     try {
       await submitWithdrawalMutation.mutateAsync(BigInt(amount));
-      toast.success("Withdrawal request submitted! Admin will process it soon.");
+      toast.success(
+        "Withdrawal request submitted! Admin will process it soon.",
+      );
       setWithdrawOpen(false);
       setWithdrawAmount("");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Withdrawal request failed");
+      toast.error(
+        err instanceof Error ? err.message : "Withdrawal request failed",
+      );
     }
   };
 
@@ -246,7 +302,9 @@ export default function WalletPage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <LCoinIcon size={40} className="opacity-40" />
-        <p className="text-muted-foreground text-sm font-body">Could not load wallet. Please refresh.</p>
+        <p className="text-muted-foreground text-sm font-body">
+          Could not load wallet. Please refresh.
+        </p>
       </div>
     );
   }
@@ -257,11 +315,15 @@ export default function WalletPage() {
       <div
         className="rounded-2xl p-6 flex flex-col items-center gap-3 relative overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, oklch(0.13 0.025 45), oklch(0.1 0.015 240), oklch(0.12 0.02 260))",
+          background:
+            "linear-gradient(135deg, oklch(0.13 0.025 45), oklch(0.1 0.015 240), oklch(0.12 0.02 260))",
           border: "1px solid oklch(0.72 0.22 45 / 0.3)",
         }}
       >
-        <div className="absolute inset-0 pointer-events-none diagonal-stripe" style={{ opacity: 0.3 }} />
+        <div
+          className="absolute inset-0 pointer-events-none diagonal-stripe"
+          style={{ opacity: 0.3 }}
+        />
         <div className="flex items-center gap-2">
           <Wallet className="w-5 h-5 neon-text-orange" />
           <span className="font-display font-bold text-sm text-muted-foreground tracking-widest uppercase">
@@ -288,7 +350,8 @@ export default function WalletPage() {
           onClick={() => setDepositOpen(true)}
           className="h-12 font-display font-bold tracking-wider uppercase text-sm btn-glow"
           style={{
-            background: "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+            background:
+              "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
             color: "oklch(0.08 0.01 240)",
             border: "none",
           }}
@@ -301,7 +364,8 @@ export default function WalletPage() {
           onClick={() => setWithdrawOpen(true)}
           className="h-12 font-display font-bold tracking-wider uppercase text-sm"
           style={{
-            background: "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
+            background:
+              "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
             color: "oklch(0.95 0.005 80)",
             border: "none",
           }}
@@ -312,20 +376,33 @@ export default function WalletPage() {
       </div>
 
       {/* My Deposit Requests */}
-      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid oklch(0.25 0.02 240)" }}>
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ border: "1px solid oklch(0.25 0.02 240)" }}
+      >
         <button
           type="button"
           className="w-full px-4 py-3 flex items-center justify-between"
-          style={{ background: "oklch(0.14 0.02 240)", borderBottom: showDepositReqs ? "1px solid oklch(0.2 0.02 240)" : "none" }}
+          style={{
+            background: "oklch(0.14 0.02 240)",
+            borderBottom: showDepositReqs
+              ? "1px solid oklch(0.2 0.02 240)"
+              : "none",
+          }}
           onClick={() => setShowDepositReqs((v) => !v)}
         >
           <div className="flex items-center gap-2">
             <ArrowDownLeft className="w-4 h-4 neon-text-green" />
-            <span className="font-display font-bold text-sm tracking-wider">MY DEPOSIT REQUESTS</span>
+            <span className="font-display font-bold text-sm tracking-wider">
+              MY DEPOSIT REQUESTS
+            </span>
             {depositRequests && depositRequests.length > 0 && (
               <span
                 className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-display font-bold"
-                style={{ background: "oklch(0.72 0.22 145 / 0.2)", color: "oklch(0.72 0.22 145)" }}
+                style={{
+                  background: "oklch(0.72 0.22 145 / 0.2)",
+                  color: "oklch(0.72 0.22 145)",
+                }}
               >
                 {depositRequests.length}
               </span>
@@ -338,64 +415,84 @@ export default function WalletPage() {
           )}
         </button>
 
-        {showDepositReqs && (
-          <>
-            {depositReqLoading ? (
-              <div className="flex flex-col gap-2 p-4">
-                {[0, 1].map((i) => <Skeleton key={i} className="h-14 w-full bg-muted/50 rounded" />)}
-              </div>
-            ) : !depositRequests || depositRequests.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-2">
-                <Smartphone className="w-8 h-8 text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm font-body">No deposit requests yet</p>
-              </div>
-            ) : (
-              <div className="flex flex-col divide-y" style={{ borderColor: "oklch(0.2 0.02 240)" }}>
-                {[...depositRequests]
-                  .sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1))
-                  .map((req) => (
-                    <div key={req.id.toString()} className="px-4 py-3 flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <LCoinIcon size={14} />
-                          <span className="font-display font-bold text-sm neon-text-gold">
-                            +{req.amount.toString()}
-                          </span>
-                        </div>
-                        <StatusBadge status={req.status} />
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <PaymentMethodBadge method={req.paymentMethod} />
-                        <span className="text-[10px] font-mono-game text-muted-foreground">
-                          TID: {req.transactionReference}
+        {showDepositReqs &&
+          (depositReqLoading ? (
+            <div className="flex flex-col gap-2 p-4">
+              {[0, 1].map((i) => (
+                <Skeleton key={i} className="h-14 w-full bg-muted/50 rounded" />
+              ))}
+            </div>
+          ) : !depositRequests || depositRequests.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <Smartphone className="w-8 h-8 text-muted-foreground/40" />
+              <p className="text-muted-foreground text-sm font-body">
+                No deposit requests yet
+              </p>
+            </div>
+          ) : (
+            <div
+              className="flex flex-col divide-y"
+              style={{ borderColor: "oklch(0.2 0.02 240)" }}
+            >
+              {[...depositRequests]
+                .sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1))
+                .map((req) => (
+                  <div
+                    key={req.id.toString()}
+                    className="px-4 py-3 flex flex-col gap-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <LCoinIcon size={14} />
+                        <span className="font-display font-bold text-sm neon-text-gold">
+                          +{req.amount.toString()}
                         </span>
                       </div>
-                      <p className="text-[10px] font-mono-game text-muted-foreground">
-                        {formatDate(req.timestamp)}
-                      </p>
+                      <StatusBadge status={req.status} />
                     </div>
-                  ))}
-              </div>
-            )}
-          </>
-        )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <PaymentMethodBadge method={req.paymentMethod} />
+                      <span className="text-[10px] font-mono-game text-muted-foreground">
+                        TID: {req.transactionReference}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-mono-game text-muted-foreground">
+                      {formatDate(req.timestamp)}
+                    </p>
+                  </div>
+                ))}
+            </div>
+          ))}
       </div>
 
       {/* My Withdrawal Requests */}
-      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid oklch(0.25 0.02 240)" }}>
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ border: "1px solid oklch(0.25 0.02 240)" }}
+      >
         <button
           type="button"
           className="w-full px-4 py-3 flex items-center justify-between"
-          style={{ background: "oklch(0.14 0.02 240)", borderBottom: showWithdrawalReqs ? "1px solid oklch(0.2 0.02 240)" : "none" }}
+          style={{
+            background: "oklch(0.14 0.02 240)",
+            borderBottom: showWithdrawalReqs
+              ? "1px solid oklch(0.2 0.02 240)"
+              : "none",
+          }}
           onClick={() => setShowWithdrawalReqs((v) => !v)}
         >
           <div className="flex items-center gap-2">
             <ArrowUpRight className="w-4 h-4 neon-text-red" />
-            <span className="font-display font-bold text-sm tracking-wider">MY WITHDRAWAL REQUESTS</span>
+            <span className="font-display font-bold text-sm tracking-wider">
+              MY WITHDRAWAL REQUESTS
+            </span>
             {withdrawalRequests && withdrawalRequests.length > 0 && (
               <span
                 className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-display font-bold"
-                style={{ background: "oklch(0.65 0.25 25 / 0.2)", color: "oklch(0.65 0.25 25)" }}
+                style={{
+                  background: "oklch(0.65 0.25 25 / 0.2)",
+                  color: "oklch(0.65 0.25 25)",
+                }}
               >
                 {withdrawalRequests.length}
               </span>
@@ -408,54 +505,75 @@ export default function WalletPage() {
           )}
         </button>
 
-        {showWithdrawalReqs && (
-          <>
-            {withdrawalReqLoading ? (
-              <div className="flex flex-col gap-2 p-4">
-                {[0, 1].map((i) => <Skeleton key={i} className="h-12 w-full bg-muted/50 rounded" />)}
-              </div>
-            ) : !withdrawalRequests || withdrawalRequests.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-2">
-                <ArrowUpRight className="w-8 h-8 text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm font-body">No withdrawal requests yet</p>
-              </div>
-            ) : (
-              <div className="flex flex-col divide-y" style={{ borderColor: "oklch(0.2 0.02 240)" }}>
-                {[...withdrawalRequests]
-                  .sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1))
-                  .map((req) => (
-                    <div key={req.id.toString()} className="px-4 py-3 flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <LCoinIcon size={14} />
-                          <span className="font-display font-bold text-sm" style={{ color: "oklch(0.72 0.25 25)" }}>
-                            -{req.amount.toString()}
-                          </span>
-                        </div>
-                        <StatusBadge status={req.status} />
+        {showWithdrawalReqs &&
+          (withdrawalReqLoading ? (
+            <div className="flex flex-col gap-2 p-4">
+              {[0, 1].map((i) => (
+                <Skeleton key={i} className="h-12 w-full bg-muted/50 rounded" />
+              ))}
+            </div>
+          ) : !withdrawalRequests || withdrawalRequests.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <ArrowUpRight className="w-8 h-8 text-muted-foreground/40" />
+              <p className="text-muted-foreground text-sm font-body">
+                No withdrawal requests yet
+              </p>
+            </div>
+          ) : (
+            <div
+              className="flex flex-col divide-y"
+              style={{ borderColor: "oklch(0.2 0.02 240)" }}
+            >
+              {[...withdrawalRequests]
+                .sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1))
+                .map((req) => (
+                  <div
+                    key={req.id.toString()}
+                    className="px-4 py-3 flex flex-col gap-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <LCoinIcon size={14} />
+                        <span
+                          className="font-display font-bold text-sm"
+                          style={{ color: "oklch(0.72 0.25 25)" }}
+                        >
+                          -{req.amount.toString()}
+                        </span>
                       </div>
-                      <p className="text-[10px] font-mono-game text-muted-foreground">
-                        {formatDate(req.timestamp)}
-                      </p>
+                      <StatusBadge status={req.status} />
                     </div>
-                  ))}
-              </div>
-            )}
-          </>
-        )}
+                    <p className="text-[10px] font-mono-game text-muted-foreground">
+                      {formatDate(req.timestamp)}
+                    </p>
+                  </div>
+                ))}
+            </div>
+          ))}
       </div>
 
       {/* Transaction History */}
-      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid oklch(0.25 0.02 240)" }}>
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ border: "1px solid oklch(0.25 0.02 240)" }}
+      >
         <div
           className="px-4 py-3"
-          style={{ background: "oklch(0.14 0.02 240)", borderBottom: "1px solid oklch(0.2 0.02 240)" }}
+          style={{
+            background: "oklch(0.14 0.02 240)",
+            borderBottom: "1px solid oklch(0.2 0.02 240)",
+          }}
         >
-          <span className="font-display font-bold text-sm tracking-wider">TRANSACTION HISTORY</span>
+          <span className="font-display font-bold text-sm tracking-wider">
+            TRANSACTION HISTORY
+          </span>
         </div>
 
         {txLoading ? (
-          <div className="flex flex-col divide-y" style={{ borderColor: "oklch(0.2 0.02 240)" }}>
+          <div
+            className="flex flex-col divide-y"
+            style={{ borderColor: "oklch(0.2 0.02 240)" }}
+          >
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3">
                 <Skeleton className="w-8 h-8 rounded-lg bg-muted/50 shrink-0" />
@@ -470,14 +588,22 @@ export default function WalletPage() {
         ) : !transactions || transactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 gap-2">
             <LCoinIcon size={32} className="opacity-40" />
-            <p className="text-muted-foreground text-sm font-body">No transactions yet</p>
+            <p className="text-muted-foreground text-sm font-body">
+              No transactions yet
+            </p>
           </div>
         ) : (
-          <div className="flex flex-col divide-y" style={{ borderColor: "oklch(0.2 0.02 240)" }}>
+          <div
+            className="flex flex-col divide-y"
+            style={{ borderColor: "oklch(0.2 0.02 240)" }}
+          >
             {[...transactions]
               .sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1))
               .map((tx) => (
-                <div key={tx.id.toString()} className="flex items-center gap-3 px-4 py-3">
+                <div
+                  key={tx.id.toString()}
+                  className="flex items-center gap-3 px-4 py-3"
+                >
                   <div
                     className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                     style={{ background: "oklch(0.16 0.02 240)" }}
@@ -501,7 +627,10 @@ export default function WalletPage() {
       <Dialog open={depositOpen} onOpenChange={setDepositOpen}>
         <DialogContent
           className="max-w-sm mx-auto rounded-2xl"
-          style={{ background: "oklch(0.12 0.015 240)", border: "1px solid oklch(0.72 0.22 145 / 0.3)" }}
+          style={{
+            background: "oklch(0.12 0.015 240)",
+            border: "1px solid oklch(0.72 0.22 145 / 0.3)",
+          }}
         >
           <DialogHeader>
             <DialogTitle className="font-display text-xl tracking-wider text-foreground">
@@ -518,23 +647,36 @@ export default function WalletPage() {
               {/* JazzCash */}
               <div
                 className="rounded-xl p-3 flex items-center justify-between gap-3"
-                style={{ background: "oklch(0.6 0.2 300 / 0.08)", border: "1px solid oklch(0.6 0.2 300 / 0.25)" }}
+                style={{
+                  background: "oklch(0.6 0.2 300 / 0.08)",
+                  border: "1px solid oklch(0.6 0.2 300 / 0.25)",
+                }}
               >
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-display font-bold tracking-wider" style={{ color: "oklch(0.75 0.2 300)" }}>
+                  <span
+                    className="text-[10px] font-display font-bold tracking-wider"
+                    style={{ color: "oklch(0.75 0.2 300)" }}
+                  >
                     JAZZCASH
                   </span>
-                  <span className="font-mono-game text-sm" style={{ color: "oklch(0.9 0.01 240)" }}>
+                  <span
+                    className="font-mono-game text-sm"
+                    style={{ color: "oklch(0.9 0.01 240)" }}
+                  >
                     {paymentNumbers?.jazzCash || "Contact admin for number"}
                   </span>
                 </div>
-                {paymentNumbers?.jazzCash && <CopyButton text={paymentNumbers.jazzCash} />}
+                {paymentNumbers?.jazzCash && (
+                  <CopyButton text={paymentNumbers.jazzCash} />
+                )}
               </div>
             </div>
 
             {/* Amount */}
             <div className="flex flex-col gap-1.5">
-              <p className="text-xs font-display font-bold text-muted-foreground tracking-wider">AMOUNT</p>
+              <p className="text-xs font-display font-bold text-muted-foreground tracking-wider">
+                AMOUNT
+              </p>
               <Input
                 type="number"
                 min={1}
@@ -569,7 +711,11 @@ export default function WalletPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => { setDepositOpen(false); setDepositAmount(""); setTransactionRef(""); }}
+              onClick={() => {
+                setDepositOpen(false);
+                setDepositAmount("");
+                setTransactionRef("");
+              }}
               className="font-display"
             >
               Cancel
@@ -580,12 +726,15 @@ export default function WalletPage() {
               disabled={submitDepositMutation.isPending}
               className="font-display font-bold"
               style={{
-                background: "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+                background:
+                  "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
                 color: "oklch(0.08 0.01 240)",
                 border: "none",
               }}
             >
-              {submitDepositMutation.isPending ? "Submitting..." : "SUBMIT REQUEST"}
+              {submitDepositMutation.isPending
+                ? "Submitting..."
+                : "SUBMIT REQUEST"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -595,7 +744,10 @@ export default function WalletPage() {
       <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
         <DialogContent
           className="max-w-sm mx-auto rounded-2xl"
-          style={{ background: "oklch(0.12 0.015 240)", border: "1px solid oklch(0.65 0.25 25 / 0.3)" }}
+          style={{
+            background: "oklch(0.12 0.015 240)",
+            border: "1px solid oklch(0.65 0.25 25 / 0.3)",
+          }}
         >
           <DialogHeader>
             <DialogTitle className="font-display text-xl tracking-wider text-foreground">
@@ -622,10 +774,19 @@ export default function WalletPage() {
             />
             <div
               className="rounded-xl p-3 flex items-start gap-2"
-              style={{ background: "oklch(0.72 0.18 85 / 0.08)", border: "1px solid oklch(0.72 0.18 85 / 0.2)" }}
+              style={{
+                background: "oklch(0.72 0.18 85 / 0.08)",
+                border: "1px solid oklch(0.72 0.18 85 / 0.2)",
+              }}
             >
-              <Clock className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "oklch(0.82 0.18 85)" }} />
-              <p className="text-xs font-body" style={{ color: "oklch(0.82 0.18 85)" }}>
+              <Clock
+                className="w-4 h-4 shrink-0 mt-0.5"
+                style={{ color: "oklch(0.82 0.18 85)" }}
+              />
+              <p
+                className="text-xs font-body"
+                style={{ color: "oklch(0.82 0.18 85)" }}
+              >
                 Your withdrawal request will be processed after admin approval.
               </p>
             </div>
@@ -634,7 +795,10 @@ export default function WalletPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => { setWithdrawOpen(false); setWithdrawAmount(""); }}
+              onClick={() => {
+                setWithdrawOpen(false);
+                setWithdrawAmount("");
+              }}
               className="font-display"
             >
               Cancel
@@ -645,12 +809,15 @@ export default function WalletPage() {
               disabled={submitWithdrawalMutation.isPending}
               className="font-display font-bold"
               style={{
-                background: "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
+                background:
+                  "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
                 color: "oklch(0.95 0.005 80)",
                 border: "none",
               }}
             >
-              {submitWithdrawalMutation.isPending ? "Submitting..." : "SUBMIT REQUEST"}
+              {submitWithdrawalMutation.isPending
+                ? "Submitting..."
+                : "SUBMIT REQUEST"}
             </Button>
           </DialogFooter>
         </DialogContent>

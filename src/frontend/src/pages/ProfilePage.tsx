@@ -1,36 +1,40 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import {
+  Check,
+  CheckCheck,
+  ChevronRight,
+  Copy,
+  Edit2,
+  LogOut,
+  Shield,
+  Trophy,
+  X,
+} from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { Variant_deposit_withdrawal_tournamentEntry as TxnType } from "../backend.d";
+import { LCoinIcon } from "../components/game/LCoinIcon";
 import { useLocalAuth } from "../hooks/useLocalAuth";
 import {
   useGetCallerUserProfile,
   useGetTransactionHistory,
-  useSetUsername,
   useIsCallerAdmin,
+  useSetUsername,
 } from "../hooks/useQueries";
-import { Variant_deposit_withdrawal_tournamentEntry as TxnType } from "../backend.d";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  LogOut,
-  Edit2,
-  Check,
-  X,
-  Trophy,
-  Shield,
-  ChevronRight,
-  Copy,
-  CheckCheck,
-} from "lucide-react";
-import { LCoinIcon } from "../components/game/LCoinIcon";
-import { toast } from "sonner";
 
 export default function ProfilePage() {
   const { currentUser, logout } = useLocalAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { data: userProfile, isLoading: profileLoading, isError: profileError } = useGetCallerUserProfile();
+  const {
+    data: userProfile,
+    isLoading: profileLoading,
+    isError: profileError,
+  } = useGetCallerUserProfile();
   const { data: transactions } = useGetTransactionHistory();
   const { data: isAdmin } = useIsCallerAdmin();
   const setUsernameMutation = useSetUsername();
@@ -40,7 +44,10 @@ export default function ProfilePage() {
   const [idCopied, setIdCopied] = useState(false);
 
   const legendId = userProfile?.legendId;
-  const legendIdDisplay = legendId && legendId > 0n ? `#${legendId.toString().padStart(4, '0')}` : "---";
+  const legendIdDisplay =
+    legendId && legendId > 0n
+      ? `#${legendId.toString().padStart(4, "0")}`
+      : "---";
   const legendIdValue = legendId && legendId > 0n ? legendId.toString() : null;
 
   const handleCopyId = async () => {
@@ -65,7 +72,8 @@ export default function ProfilePage() {
     try {
       const textarea = document.createElement("textarea");
       textarea.value = valueToCopy;
-      textarea.style.cssText = "position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;box-shadow:none;background:transparent;opacity:0;";
+      textarea.style.cssText =
+        "position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;box-shadow:none;background:transparent;opacity:0;";
       document.body.appendChild(textarea);
       textarea.focus();
       textarea.select();
@@ -87,7 +95,13 @@ export default function ProfilePage() {
   };
 
   const displayName =
-    userProfile?.fullName?.trim() || userProfile?.inGameName?.trim() || userProfile?.username?.trim() || currentUser?.inGameName?.trim() || currentUser?.fullName?.trim() || currentUser?.email?.split("@")[0] || "Player";
+    userProfile?.fullName?.trim() ||
+    userProfile?.inGameName?.trim() ||
+    userProfile?.username?.trim() ||
+    currentUser?.inGameName?.trim() ||
+    currentUser?.fullName?.trim() ||
+    currentUser?.email?.split("@")[0] ||
+    "Player";
 
   const initials = displayName
     .split(" ")
@@ -96,9 +110,8 @@ export default function ProfilePage() {
     .toUpperCase()
     .slice(0, 2);
 
-  const tournamentEntries = transactions?.filter(
-    (tx) => tx.txnType === TxnType.tournamentEntry
-  ) ?? [];
+  const tournamentEntries =
+    transactions?.filter((tx) => tx.txnType === TxnType.tournamentEntry) ?? [];
 
   const handleSignOut = () => {
     logout();
@@ -121,7 +134,9 @@ export default function ProfilePage() {
       toast.success("Username updated!");
       setEditingUsername(false);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to update username");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update username",
+      );
     }
   };
 
@@ -158,7 +173,8 @@ export default function ProfilePage() {
       <div
         className="rounded-2xl p-6 flex flex-col items-center gap-4 relative overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, oklch(0.13 0.025 240), oklch(0.1 0.015 260))",
+          background:
+            "linear-gradient(135deg, oklch(0.13 0.025 240), oklch(0.1 0.015 260))",
           border: "1px solid oklch(0.25 0.02 240)",
         }}
       >
@@ -168,7 +184,8 @@ export default function ProfilePage() {
         <div
           className="w-20 h-20 rounded-2xl flex items-center justify-center font-display font-bold text-2xl relative"
           style={{
-            background: "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+            background:
+              "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
             boxShadow: "0 0 20px oklch(0.72 0.22 45 / 0.3)",
           }}
         >
@@ -181,7 +198,10 @@ export default function ProfilePage() {
                 boxShadow: "0 0 8px oklch(0.82 0.18 85 / 0.5)",
               }}
             >
-              <Shield className="w-3 h-3" style={{ color: "oklch(0.08 0.01 240)" }} />
+              <Shield
+                className="w-3 h-3"
+                style={{ color: "oklch(0.08 0.01 240)" }}
+              />
             </div>
           )}
         </div>
@@ -268,8 +288,12 @@ export default function ProfilePage() {
             <span
               className="font-display font-bold text-2xl tracking-widest"
               style={{
-                color: legendIdValue ? "oklch(0.82 0.22 55)" : "oklch(0.4 0.01 240)",
-                textShadow: legendIdValue ? "0 0 16px oklch(0.82 0.22 55 / 0.4)" : "none",
+                color: legendIdValue
+                  ? "oklch(0.82 0.22 55)"
+                  : "oklch(0.4 0.01 240)",
+                textShadow: legendIdValue
+                  ? "0 0 16px oklch(0.82 0.22 55 / 0.4)"
+                  : "none",
               }}
             >
               {legendIdDisplay}
@@ -280,12 +304,20 @@ export default function ProfilePage() {
             onClick={handleCopyId}
             className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-display font-bold tracking-wider transition-all"
             style={{
-              background: idCopied ? "oklch(0.72 0.22 145 / 0.2)" : "oklch(0.72 0.22 45 / 0.15)",
-              border: idCopied ? "1px solid oklch(0.72 0.22 145 / 0.5)" : "1px solid oklch(0.72 0.22 45 / 0.4)",
+              background: idCopied
+                ? "oklch(0.72 0.22 145 / 0.2)"
+                : "oklch(0.72 0.22 45 / 0.15)",
+              border: idCopied
+                ? "1px solid oklch(0.72 0.22 145 / 0.5)"
+                : "1px solid oklch(0.72 0.22 45 / 0.4)",
               color: idCopied ? "oklch(0.72 0.22 145)" : "oklch(0.72 0.22 45)",
             }}
           >
-            {idCopied ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            {idCopied ? (
+              <CheckCheck className="w-3 h-3" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
             {idCopied ? "COPIED!" : "COPY LEGEND ID"}
           </button>
         </div>
@@ -302,7 +334,9 @@ export default function ProfilePage() {
                 {(userProfile?.balance ?? 0n).toString()}
               </span>
             </div>
-            <span className="text-[10px] font-body text-muted-foreground">LEGEND COINS</span>
+            <span className="text-[10px] font-body text-muted-foreground">
+              LEGEND COINS
+            </span>
           </div>
           <div
             className="flex flex-col items-center gap-1 p-3 rounded-xl"
@@ -311,12 +345,17 @@ export default function ProfilePage() {
             <span className="neon-text-orange font-display font-bold text-xl">
               {tournamentEntries.length}
             </span>
-            <span className="text-[10px] font-body text-muted-foreground">TOURNAMENTS</span>
+            <span className="text-[10px] font-body text-muted-foreground">
+              TOURNAMENTS
+            </span>
           </div>
         </div>
 
         {/* Extended profile info */}
-        {(userProfile?.inGameName || userProfile?.email || userProfile?.mobileNo || userProfile?.gameUID) && (
+        {(userProfile?.inGameName ||
+          userProfile?.email ||
+          userProfile?.mobileNo ||
+          userProfile?.gameUID) && (
           <div
             className="w-full rounded-xl overflow-hidden"
             style={{ border: "1px solid oklch(0.2 0.02 240)" }}
@@ -326,8 +365,13 @@ export default function ProfilePage() {
                 className="flex items-center justify-between px-3 py-2.5"
                 style={{ borderBottom: "1px solid oklch(0.17 0.02 240)" }}
               >
-                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">IN-GAME NAME</span>
-                <span className="text-xs font-display font-bold" style={{ color: "oklch(0.72 0.22 45)" }}>
+                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">
+                  IN-GAME NAME
+                </span>
+                <span
+                  className="text-xs font-display font-bold"
+                  style={{ color: "oklch(0.72 0.22 45)" }}
+                >
                   {userProfile.inGameName}
                 </span>
               </div>
@@ -337,8 +381,13 @@ export default function ProfilePage() {
                 className="flex items-center justify-between px-3 py-2.5"
                 style={{ borderBottom: "1px solid oklch(0.17 0.02 240)" }}
               >
-                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">GAME UID</span>
-                <span className="text-xs font-mono-game" style={{ color: "oklch(0.8 0.01 240)" }}>
+                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">
+                  GAME UID
+                </span>
+                <span
+                  className="text-xs font-mono-game"
+                  style={{ color: "oklch(0.8 0.01 240)" }}
+                >
                   {userProfile.gameUID}
                 </span>
               </div>
@@ -348,16 +397,26 @@ export default function ProfilePage() {
                 className="flex items-center justify-between px-3 py-2.5"
                 style={{ borderBottom: "1px solid oklch(0.17 0.02 240)" }}
               >
-                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">EMAIL</span>
-                <span className="text-xs font-body" style={{ color: "oklch(0.75 0.01 240)" }}>
+                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">
+                  EMAIL
+                </span>
+                <span
+                  className="text-xs font-body"
+                  style={{ color: "oklch(0.75 0.01 240)" }}
+                >
                   {userProfile.email}
                 </span>
               </div>
             )}
             {userProfile?.mobileNo && (
               <div className="flex items-center justify-between px-3 py-2.5">
-                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">MOBILE</span>
-                <span className="text-xs font-mono-game" style={{ color: "oklch(0.75 0.01 240)" }}>
+                <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">
+                  MOBILE
+                </span>
+                <span
+                  className="text-xs font-mono-game"
+                  style={{ color: "oklch(0.75 0.01 240)" }}
+                >
                   +92 {userProfile.mobileNo}
                 </span>
               </div>
@@ -374,20 +433,33 @@ export default function ProfilePage() {
         >
           <div
             className="px-4 py-3 flex items-center gap-2"
-            style={{ background: "oklch(0.14 0.02 240)", borderBottom: "1px solid oklch(0.2 0.02 240)" }}
+            style={{
+              background: "oklch(0.14 0.02 240)",
+              borderBottom: "1px solid oklch(0.2 0.02 240)",
+            }}
           >
             <Trophy className="w-4 h-4 neon-text-orange" />
-            <span className="font-display font-bold text-sm tracking-wider">TOURNAMENTS JOINED</span>
+            <span className="font-display font-bold text-sm tracking-wider">
+              TOURNAMENTS JOINED
+            </span>
           </div>
-          <div className="flex flex-col divide-y" style={{ borderColor: "oklch(0.2 0.02 240)" }}>
+          <div
+            className="flex flex-col divide-y"
+            style={{ borderColor: "oklch(0.2 0.02 240)" }}
+          >
             {tournamentEntries.map((tx) => (
-              <div key={tx.id.toString()} className="flex items-center justify-between px-4 py-3">
+              <div
+                key={tx.id.toString()}
+                className="flex items-center justify-between px-4 py-3"
+              >
                 <div>
                   <p className="text-sm font-display font-bold text-foreground">
                     Tournament Entry
                   </p>
                   <p className="text-[10px] font-mono-game text-muted-foreground">
-                    {new Date(Number(tx.timestamp / 1_000_000n)).toLocaleDateString("en-US", {
+                    {new Date(
+                      Number(tx.timestamp / 1_000_000n),
+                    ).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
@@ -395,8 +467,7 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 <span className="neon-text-red font-display font-bold text-sm flex items-center gap-1">
-                  <LCoinIcon size={16} />
-                  -{tx.amount.toString()}
+                  <LCoinIcon size={16} />-{tx.amount.toString()}
                 </span>
               </div>
             ))}
@@ -412,9 +483,15 @@ export default function ProfilePage() {
           className="w-full rounded-xl p-4 flex items-center gap-3 card-glass card-glow-hover transition-colors text-left"
           style={{ border: "1px solid oklch(0.82 0.18 85 / 0.3)" }}
         >
-          <Shield className="w-5 h-5" style={{ color: "oklch(0.82 0.18 85)" }} />
+          <Shield
+            className="w-5 h-5"
+            style={{ color: "oklch(0.82 0.18 85)" }}
+          />
           <div className="flex-1">
-            <p className="font-display font-bold text-sm" style={{ color: "oklch(0.82 0.18 85)" }}>
+            <p
+              className="font-display font-bold text-sm"
+              style={{ color: "oklch(0.82 0.18 85)" }}
+            >
               ADMIN PANEL
             </p>
             <p className="text-xs font-body text-muted-foreground">

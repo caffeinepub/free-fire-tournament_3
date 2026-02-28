@@ -9,8 +9,6 @@ import Nat "mo:core/Nat";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
-
-
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
@@ -127,6 +125,15 @@ actor {
     };
   };
 
+  module PlayerSlotKey {
+    public func compare(key1 : (Nat, Text), key2 : (Nat, Text)) : Order.Order {
+      switch (Nat.compare(key1.0, key2.0)) {
+        case (#equal) { Text.compare(key1.1, key2.1) };
+        case (order) { order };
+      };
+    };
+  };
+
   var nextCategoryId = 1;
   var nextTournamentId = 1;
   var nextTransactionId = 1;
@@ -140,13 +147,14 @@ actor {
   let transactions = Map.empty<Principal, List.List<Transaction>>();
   let leaderboards = Map.empty<Nat, List.List<LeaderboardEntry>>();
   let userProfiles = Map.empty<Principal, ExtendedUserProfile>();
+  let playerSlots = Map.empty<(Nat, Text), Nat>();
 
   let depositRequests = Map.empty<Nat, DepositRequest>();
   let withdrawalRequests = Map.empty<Nat, WithdrawalRequest>();
   let accounts = Map.empty<Text, AccountInfo>();
 
   let legendIdToEmail = Map.empty<Nat, Text>();
-
+  let tournamentRoomDetails = Map.empty<Nat, { roomId : Text; roomPassword : Text }>();
   var passwordResetCode : Text = "";
   var paymentNumbers : PaymentNumbers = {
     jazzCash = "";
@@ -163,8 +171,33 @@ actor {
     AccessControl.hasPermission(accessControlState, caller, #user);
   };
 
-  // Account Management
-  public shared ({ caller }) func registerAccount(
+  public query ({ caller }) func getCallerJoinedSlot(tournamentId : Nat) : async ?Nat {
+    if (not hasUserPermissionWithOverride(caller)) {
+      Runtime.trap("Unauthorized: Only users can get slot information");
+    };
+    playerSlots.get((tournamentId, caller.toText()));
+  };
+
+  public shared ({ caller }) func setTournamentRoomDetails(
+    tournamentId : Nat,
+    roomId : Text,
+    roomPassword : Text,
+  ) : async () {
+    if (not isAdminWithOverride(caller)) {
+      Runtime.trap("Unauthorized: Only admins can set room details");
+    };
+    tournamentRoomDetails.add(tournamentId, { roomId; roomPassword });
+  };
+
+  public query ({ caller }) func getTournamentRoomDetails(tournamentId : Nat) : async ?{ roomId : Text; roomPassword : Text } {
+    let hasJoined = playerSlots.containsKey((tournamentId, caller.toText()));
+    if (not hasJoined and not isAdminWithOverride(caller)) {
+      return null;
+    };
+    tournamentRoomDetails.get(tournamentId);
+  };
+
+  public shared func registerAccount(
     email : Text,
     passwordHash : Text,
     fullName : Text,
@@ -173,16 +206,13 @@ actor {
     mobileNo : Text,
     referCode : Text,
   ) : async { #ok; #err : Text } {
-    // No authorization check - registration is open to all including anonymous users
     if (accounts.containsKey(email)) {
       return #err("Email already taken. Please use another email");
     };
 
-    // Assign new legendId
     let legendId = nextLegendId;
     nextLegendId += 1;
 
-    // Store mapping from legendId to email
     legendIdToEmail.add(legendId, email);
 
     let profile : ExtendedUserProfile = {
@@ -194,7 +224,7 @@ actor {
       email;
       referCode;
       balance = 0;
-      legendId = legendId; // Add new field
+      legendId = legendId;
     };
 
     let accountInfo : AccountInfo = {
@@ -207,11 +237,10 @@ actor {
     #ok;
   };
 
-  public shared ({ caller }) func login(
+  public shared func login(
     email : Text,
     passwordHash : Text,
   ) : async { #ok : ExtendedUserProfile; #err : Text } {
-    // No authorization check - login is open to all including anonymous users
     switch (accounts.get(email)) {
       case (null) {
         #err("Account not found. Please double check your email and password");
@@ -226,15 +255,11 @@ actor {
     };
   };
 
-  public shared ({ caller }) func resetPassword(
+  public shared func resetPassword(
     email : Text,
     resetCode : Text,
     newPasswordHash : Text,
   ) : async { #ok; #err : Text } {
-    if (not hasUserPermissionWithOverride(caller)) {
-      Runtime.trap("Unauthorized: Only authenticated users can reset passwords");
-    };
-
     if (resetCode != passwordResetCode) {
       return #err("Invalid reset code");
     };
@@ -268,7 +293,6 @@ actor {
     passwordResetCode;
   };
 
-  // User Management
   public shared ({ caller }) func registerUser(
     fullName : Text,
     inGameName : Text,
@@ -281,7 +305,6 @@ actor {
       Runtime.trap("Unauthorized: Only users can register");
     };
 
-    // Assign new legendId
     let legendId = nextLegendId;
     nextLegendId += 1;
 
@@ -340,7 +363,6 @@ actor {
     entries;
   };
 
-  // Category Management
   public shared ({ caller }) func createCategory(name : Text) : async () {
     if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can create categories");
@@ -358,7 +380,6 @@ actor {
     categories.values().toArray();
   };
 
-  // Tournament Management
   public shared ({ caller }) func createTournament(
     title : Text,
     categoryId : Nat,
@@ -451,6 +472,8 @@ actor {
                   slotsFilled = tournament.slotsFilled + 1
                 };
                 tournaments.add(tournamentId, updatedTournament);
+
+                playerSlots.add((tournamentId, caller.toText()), slotNumber);
               };
             };
           };
@@ -474,7 +497,6 @@ actor {
     paymentNumbers;
   };
 
-  // Deposit and Withdrawal Functionality
   public shared ({ caller }) func submitDepositRequest(
     amount : Nat,
     paymentMethod : { #jazzCash; #easyPaisa },
@@ -532,7 +554,6 @@ actor {
     };
   };
 
-  // Admin Approval Functions
   public shared ({ caller }) func approveDepositRequest(requestId : Nat) : async () {
     if (not isAdminWithOverride(caller)) {
       Runtime.trap("Unauthorized: Only admins can approve deposits");

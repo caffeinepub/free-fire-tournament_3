@@ -110,6 +110,7 @@ export interface backendInterface {
     getAllUsers(): Promise<Array<[Principal, ExtendedUserProfile]>>;
     getAllWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
     getCallerDepositRequests(): Promise<Array<DepositRequest>>;
+    getCallerJoinedSlot(tournamentId: bigint): Promise<bigint | null>;
     getCallerUserProfile(): Promise<ExtendedUserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCallerWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
@@ -122,6 +123,10 @@ export interface backendInterface {
     getResetCode(): Promise<string>;
     getTakenSlots(tournamentId: bigint): Promise<Array<bigint>>;
     getTournament(id: bigint): Promise<Tournament | null>;
+    getTournamentRoomDetails(tournamentId: bigint): Promise<{
+        roomPassword: string;
+        roomId: string;
+    } | null>;
     getTournaments(): Promise<Array<Tournament>>;
     getTransactionHistory(): Promise<Array<Transaction>>;
     getUserByLegendId(legendId: bigint): Promise<[Principal, ExtendedUserProfile] | null>;
@@ -157,6 +162,7 @@ export interface backendInterface {
     saveCallerUserProfile(profile: ExtendedUserProfile): Promise<void>;
     setPaymentNumbers(jazzCash: string, easyPaisa: string): Promise<void>;
     setResetCode(code: string): Promise<void>;
+    setTournamentRoomDetails(tournamentId: bigint, roomId: string, roomPassword: string): Promise<void>;
     setUsername(username: string): Promise<void>;
     submitDepositRequest(amount: bigint, paymentMethod: Variant_easyPaisa_jazzCash, transactionReference: string): Promise<bigint>;
     submitWithdrawalRequest(amount: bigint): Promise<bigint>;

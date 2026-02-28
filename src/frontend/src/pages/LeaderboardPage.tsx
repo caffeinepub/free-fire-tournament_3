@@ -1,10 +1,10 @@
-import { Trophy, Swords } from "lucide-react";
-import { LCoinIcon } from "../components/game/LCoinIcon";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useGetGlobalLeaderboard } from "../hooks/useQueries";
-import type { GlobalLeaderboardEntry } from "../backend.d";
 import { useNavigate } from "@tanstack/react-router";
+import { Swords, Trophy } from "lucide-react";
+import type { GlobalLeaderboardEntry } from "../backend.d";
+import { LCoinIcon } from "../components/game/LCoinIcon";
+import { useGetGlobalLeaderboard } from "../hooks/useQueries";
 
 // ─── Rank Badge ───────────────────────────────────────────────────────────────
 
@@ -14,7 +14,8 @@ function RankBadge({ rank }: { rank: number }) {
       <div
         className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0"
         style={{
-          background: "linear-gradient(135deg, oklch(0.85 0.18 85), oklch(0.70 0.22 65))",
+          background:
+            "linear-gradient(135deg, oklch(0.85 0.18 85), oklch(0.70 0.22 65))",
           color: "oklch(0.15 0.02 80)",
           boxShadow: "0 0 12px oklch(0.85 0.18 85 / 0.6)",
         }}
@@ -28,7 +29,8 @@ function RankBadge({ rank }: { rank: number }) {
       <div
         className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0"
         style={{
-          background: "linear-gradient(135deg, oklch(0.82 0.04 240), oklch(0.65 0.06 240))",
+          background:
+            "linear-gradient(135deg, oklch(0.82 0.04 240), oklch(0.65 0.06 240))",
           color: "oklch(0.15 0.02 240)",
           boxShadow: "0 0 10px oklch(0.82 0.04 240 / 0.5)",
         }}
@@ -42,7 +44,8 @@ function RankBadge({ rank }: { rank: number }) {
       <div
         className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0"
         style={{
-          background: "linear-gradient(135deg, oklch(0.72 0.16 50), oklch(0.55 0.14 40))",
+          background:
+            "linear-gradient(135deg, oklch(0.72 0.16 50), oklch(0.55 0.14 40))",
           color: "oklch(0.92 0.04 50)",
           boxShadow: "0 0 10px oklch(0.72 0.16 50 / 0.5)",
         }}
@@ -67,24 +70,25 @@ function RankBadge({ rank }: { rank: number }) {
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
 
-function LeaderboardRow({ entry, rank }: { entry: GlobalLeaderboardEntry; rank: number }) {
+function LeaderboardRow({
+  entry,
+  rank,
+}: { entry: GlobalLeaderboardEntry; rank: number }) {
   const isTopThree = rank <= 3;
   return (
     <div
       className="flex items-center gap-3 px-4 py-3 transition-colors duration-100"
       style={{
         background:
-          rank % 2 === 0
-            ? "oklch(0.12 0.015 240 / 0.6)"
-            : "transparent",
+          rank % 2 === 0 ? "oklch(0.12 0.015 240 / 0.6)" : "transparent",
         borderBottom: "1px solid oklch(0.16 0.015 240)",
         ...(isTopThree && {
           borderLeft: `2px solid ${
             rank === 1
               ? "oklch(0.85 0.18 85)"
               : rank === 2
-              ? "oklch(0.82 0.04 240)"
-              : "oklch(0.72 0.16 50)"
+                ? "oklch(0.82 0.04 240)"
+                : "oklch(0.72 0.16 50)"
           }`,
         }),
       }}
@@ -169,9 +173,11 @@ export default function LeaderboardPage() {
           onClick={() => navigate({ to: "/" })}
           className="w-full h-12 rounded-xl font-display font-black text-base tracking-[0.2em] uppercase transition-all duration-150 active:scale-[0.97] flex items-center justify-center gap-2"
           style={{
-            background: "linear-gradient(135deg, oklch(0.60 0.22 145), oklch(0.52 0.20 150))",
+            background:
+              "linear-gradient(135deg, oklch(0.60 0.22 145), oklch(0.52 0.20 150))",
             color: "#ffffff",
-            boxShadow: "0 0 20px oklch(0.60 0.22 145 / 0.45), 0 2px 8px oklch(0.40 0.20 145 / 0.4)",
+            boxShadow:
+              "0 0 20px oklch(0.60 0.22 145 / 0.45), 0 2px 8px oklch(0.40 0.20 145 / 0.4)",
             border: "1px solid oklch(0.68 0.22 145 / 0.5)",
           }}
         >
@@ -293,7 +299,11 @@ export default function LeaderboardPage() {
         <ScrollArea className="flex-1">
           <div className="pb-4">
             {topHundred.map((entry, idx) => (
-              <LeaderboardRow key={entry.player.toString()} entry={entry} rank={idx + 1} />
+              <LeaderboardRow
+                key={entry.player.toString()}
+                entry={entry}
+                rank={idx + 1}
+              />
             ))}
           </div>
         </ScrollArea>

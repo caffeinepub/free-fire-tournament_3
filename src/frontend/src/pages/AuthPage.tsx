@@ -1,11 +1,21 @@
-import { useState, useEffect, useRef } from "react";
-import { useLocalAuth } from "../hooks/useLocalAuth";
-import { useActor } from "../hooks/useActor";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Flame, Shield, Zap, Eye, EyeOff, Loader2, KeyRound, WifiOff, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Eye,
+  EyeOff,
+  Flame,
+  KeyRound,
+  Loader2,
+  RefreshCw,
+  Shield,
+  WifiOff,
+  Zap,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useActor } from "../hooks/useActor";
+import { useLocalAuth } from "../hooks/useLocalAuth";
 
 type Tab = "login" | "register" | "forgot";
 
@@ -36,7 +46,9 @@ export default function AuthPage() {
       if (timerRef.current) clearInterval(timerRef.current);
       setActorWaitSeconds(0);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [actor, isLoading]);
 
   // Login fields
@@ -67,11 +79,20 @@ export default function AuthPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submittingRef.current) return;
-    if (!loginEmail.trim()) { toast.error("Please enter your email"); return; }
-    if (!loginPassword) { toast.error("Please enter your password"); return; }
+    if (!loginEmail.trim()) {
+      toast.error("Please enter your email");
+      return;
+    }
+    if (!loginPassword) {
+      toast.error("Please enter your password");
+      return;
+    }
 
     if (!actor) {
-      toast.error("Server not connected yet. Please wait a moment and try again.", { duration: 4000 });
+      toast.error(
+        "Server not connected yet. Please wait a moment and try again.",
+        { duration: 4000 },
+      );
       return;
     }
 
@@ -90,17 +111,44 @@ export default function AuthPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submittingRef.current) return;
-    if (!fullName.trim()) { toast.error("Full name is required"); return; }
-    if (!inGameName.trim()) { toast.error("In-game name is required"); return; }
-    if (!mobileNo.trim()) { toast.error("Mobile number is required"); return; }
-    if (!regEmail.trim()) { toast.error("Email is required"); return; }
-    if (!regPassword) { toast.error("Password is required"); return; }
-    if (regPassword.length < 6) { toast.error("Password must be at least 6 characters"); return; }
-    if (regPassword !== confirmPassword) { toast.error("Passwords do not match"); return; }
-    if (!privacyAccepted) { toast.error("Please accept the Privacy Policy"); return; }
+    if (!fullName.trim()) {
+      toast.error("Full name is required");
+      return;
+    }
+    if (!inGameName.trim()) {
+      toast.error("In-game name is required");
+      return;
+    }
+    if (!mobileNo.trim()) {
+      toast.error("Mobile number is required");
+      return;
+    }
+    if (!regEmail.trim()) {
+      toast.error("Email is required");
+      return;
+    }
+    if (!regPassword) {
+      toast.error("Password is required");
+      return;
+    }
+    if (regPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    if (regPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (!privacyAccepted) {
+      toast.error("Please accept the Privacy Policy");
+      return;
+    }
 
     if (!actor) {
-      toast.error("Server not connected yet. Please wait a moment and try again.", { duration: 4000 });
+      toast.error(
+        "Server not connected yet. Please wait a moment and try again.",
+        { duration: 4000 },
+      );
       return;
     }
 
@@ -124,9 +172,12 @@ export default function AuthPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Registration failed";
       const isAlreadyExists =
-        msg.toLowerCase().includes("already") || msg.toLowerCase().includes("exist");
+        msg.toLowerCase().includes("already") ||
+        msg.toLowerCase().includes("exist");
       if (isAlreadyExists) {
-        toast.error("This email is already registered. Please sign in instead.");
+        toast.error(
+          "This email is already registered. Please sign in instead.",
+        );
         setLoginEmail(emailUsed);
         setTab("login");
       } else {
@@ -140,11 +191,26 @@ export default function AuthPage() {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fpEmail.trim()) { toast.error("Please enter your email"); return; }
-    if (!fpResetCode.trim()) { toast.error("Please enter the reset code"); return; }
-    if (!fpNewPassword) { toast.error("Please enter a new password"); return; }
-    if (fpNewPassword.length < 6) { toast.error("Password must be at least 6 characters"); return; }
-    if (fpNewPassword !== fpConfirmPassword) { toast.error("Passwords do not match"); return; }
+    if (!fpEmail.trim()) {
+      toast.error("Please enter your email");
+      return;
+    }
+    if (!fpResetCode.trim()) {
+      toast.error("Please enter the reset code");
+      return;
+    }
+    if (!fpNewPassword) {
+      toast.error("Please enter a new password");
+      return;
+    }
+    if (fpNewPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    if (fpNewPassword !== fpConfirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
 
     if (!actor) {
       toast.error("Connecting to server, please try again in a moment.");
@@ -157,7 +223,7 @@ export default function AuthPage() {
       const result = await actor.resetPassword(
         fpEmail.trim().toLowerCase(),
         fpResetCode.trim(),
-        newPasswordHash
+        newPasswordHash,
       );
 
       if (result.__kind__ === "err") {
@@ -172,7 +238,9 @@ export default function AuthPage() {
       setFpConfirmPassword("");
       setTab("login");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to reset password");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to reset password",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -193,11 +261,17 @@ export default function AuthPage() {
       <div className="absolute inset-0 diagonal-stripe opacity-40 pointer-events-none" />
       <div
         className="absolute top-0 right-0 w-64 h-64 rounded-full pointer-events-none"
-        style={{ background: "radial-gradient(circle, oklch(0.72 0.22 45 / 0.08) 0%, transparent 70%)" }}
+        style={{
+          background:
+            "radial-gradient(circle, oklch(0.72 0.22 45 / 0.08) 0%, transparent 70%)",
+        }}
       />
       <div
         className="absolute bottom-0 left-0 w-48 h-48 rounded-full pointer-events-none"
-        style={{ background: "radial-gradient(circle, oklch(0.58 0.25 25 / 0.08) 0%, transparent 70%)" }}
+        style={{
+          background:
+            "radial-gradient(circle, oklch(0.58 0.25 25 / 0.08) 0%, transparent 70%)",
+        }}
       />
 
       {/* Top spacer */}
@@ -211,7 +285,8 @@ export default function AuthPage() {
             <div
               className="w-20 h-20 rounded-2xl flex items-center justify-center"
               style={{
-                background: "linear-gradient(135deg, oklch(0.15 0.03 45), oklch(0.12 0.015 240))",
+                background:
+                  "linear-gradient(135deg, oklch(0.15 0.03 45), oklch(0.12 0.015 240))",
                 border: "1px solid oklch(0.72 0.22 45 / 0.4)",
                 boxShadow: "0 0 30px oklch(0.72 0.22 45 / 0.2)",
               }}
@@ -240,8 +315,16 @@ export default function AuthPage() {
         {/* Feature highlights */}
         <div className="grid grid-cols-3 gap-2 w-full">
           {[
-            { icon: Flame, label: "Hot Tournaments", color: "neon-text-orange" },
-            { icon: Shield, label: "Secure Platform", color: "neon-text-green" },
+            {
+              icon: Flame,
+              label: "Hot Tournaments",
+              color: "neon-text-orange",
+            },
+            {
+              icon: Shield,
+              label: "Secure Platform",
+              color: "neon-text-green",
+            },
             { icon: Zap, label: "Instant Prizes", color: "neon-text-gold" },
           ].map(({ icon: Icon, label, color }) => (
             <div
@@ -249,7 +332,9 @@ export default function AuthPage() {
               className="card-glass rounded-xl p-2.5 flex flex-col items-center gap-1.5 text-center"
             >
               <Icon className={`w-4 h-4 ${color}`} />
-              <span className="text-[10px] text-muted-foreground font-body leading-tight">{label}</span>
+              <span className="text-[10px] text-muted-foreground font-body leading-tight">
+                {label}
+              </span>
             </div>
           ))}
         </div>
@@ -259,19 +344,34 @@ export default function AuthPage() {
           <div
             className="w-full rounded-xl px-4 py-3 flex items-center gap-3"
             style={{
-              background: actorWaitSeconds > 5
-                ? "oklch(0.58 0.25 25 / 0.15)"
-                : "oklch(0.72 0.22 45 / 0.1)",
+              background:
+                actorWaitSeconds > 5
+                  ? "oklch(0.58 0.25 25 / 0.15)"
+                  : "oklch(0.72 0.22 45 / 0.1)",
               border: `1px solid ${actorWaitSeconds > 5 ? "oklch(0.58 0.25 25 / 0.4)" : "oklch(0.72 0.22 45 / 0.3)"}`,
             }}
           >
             {actorLoading || actorWaitSeconds <= 5 ? (
-              <Loader2 className="w-4 h-4 animate-spin shrink-0" style={{ color: "oklch(0.72 0.22 45)" }} />
+              <Loader2
+                className="w-4 h-4 animate-spin shrink-0"
+                style={{ color: "oklch(0.72 0.22 45)" }}
+              />
             ) : (
-              <WifiOff className="w-4 h-4 shrink-0" style={{ color: "oklch(0.58 0.25 25)" }} />
+              <WifiOff
+                className="w-4 h-4 shrink-0"
+                style={{ color: "oklch(0.58 0.25 25)" }}
+              />
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-body" style={{ color: actorWaitSeconds > 5 ? "oklch(0.75 0.15 35)" : "oklch(0.85 0.05 80)" }}>
+              <p
+                className="text-xs font-body"
+                style={{
+                  color:
+                    actorWaitSeconds > 5
+                      ? "oklch(0.75 0.15 35)"
+                      : "oklch(0.85 0.05 80)",
+                }}
+              >
                 {actorWaitSeconds > 5
                   ? "Server taking longer than usual..."
                   : "Connecting to server..."}
@@ -300,7 +400,8 @@ export default function AuthPage() {
         <div
           className="w-full rounded-2xl overflow-hidden"
           style={{
-            background: "linear-gradient(135deg, oklch(0.13 0.02 240), oklch(0.11 0.015 260))",
+            background:
+              "linear-gradient(135deg, oklch(0.13 0.02 240), oklch(0.11 0.015 260))",
             border: "1px solid oklch(0.25 0.02 240)",
           }}
         >
@@ -317,9 +418,16 @@ export default function AuthPage() {
                   onClick={() => setTab(t)}
                   className="py-3 font-display font-bold text-sm tracking-wider uppercase transition-all"
                   style={{
-                    background: tab === t ? "oklch(0.72 0.22 45 / 0.12)" : "transparent",
-                    color: tab === t ? "oklch(0.72 0.22 45)" : "oklch(0.55 0.02 240)",
-                    borderBottom: tab === t ? "2px solid oklch(0.72 0.22 45)" : "2px solid transparent",
+                    background:
+                      tab === t ? "oklch(0.72 0.22 45 / 0.12)" : "transparent",
+                    color:
+                      tab === t
+                        ? "oklch(0.72 0.22 45)"
+                        : "oklch(0.55 0.02 240)",
+                    borderBottom:
+                      tab === t
+                        ? "2px solid oklch(0.72 0.22 45)"
+                        : "2px solid transparent",
                   }}
                 >
                   {t === "login" ? "SIGN IN" : "REGISTER"}
@@ -332,10 +440,19 @@ export default function AuthPage() {
           {tab === "forgot" && (
             <div
               className="px-5 py-4 flex items-center gap-2"
-              style={{ borderBottom: "1px solid oklch(0.2 0.02 240)", background: "oklch(0.72 0.22 45 / 0.06)" }}
+              style={{
+                borderBottom: "1px solid oklch(0.2 0.02 240)",
+                background: "oklch(0.72 0.22 45 / 0.06)",
+              }}
             >
-              <KeyRound className="w-4 h-4" style={{ color: "oklch(0.72 0.22 45)" }} />
-              <span className="font-display font-bold text-sm tracking-wider" style={{ color: "oklch(0.72 0.22 45)" }}>
+              <KeyRound
+                className="w-4 h-4"
+                style={{ color: "oklch(0.72 0.22 45)" }}
+              />
+              <span
+                className="font-display font-bold text-sm tracking-wider"
+                style={{ color: "oklch(0.72 0.22 45)" }}
+              >
                 RESET PASSWORD
               </span>
             </div>
@@ -370,7 +487,11 @@ export default function AuthPage() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     tabIndex={-1}
                   >
-                    {showLoginPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showLoginPwd ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
 
@@ -379,9 +500,10 @@ export default function AuthPage() {
                   disabled={isLoading || !actor}
                   className="w-full h-11 font-display text-sm font-bold tracking-wider uppercase btn-glow mt-1"
                   style={{
-                    background: (isLoading || !actor)
-                      ? "oklch(0.45 0.1 45)"
-                      : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+                    background:
+                      isLoading || !actor
+                        ? "oklch(0.45 0.1 45)"
+                        : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
                     color: "oklch(0.08 0.01 240)",
                     border: "none",
                   }}
@@ -492,7 +614,11 @@ export default function AuthPage() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     tabIndex={-1}
                   >
-                    {showRegPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showRegPwd ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
                 <div className="relative">
@@ -511,7 +637,11 @@ export default function AuthPage() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     tabIndex={-1}
                   >
-                    {showConfirmPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showConfirmPwd ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
                 <Input
@@ -531,11 +661,18 @@ export default function AuthPage() {
                     onCheckedChange={(v) => setPrivacyAccepted(!!v)}
                     className="mt-0.5 border-muted-foreground data-[state=checked]:bg-[oklch(0.72_0.22_45)] data-[state=checked]:border-[oklch(0.72_0.22_45)]"
                   />
-                  <label htmlFor="privacy" className="text-xs font-body text-muted-foreground leading-snug cursor-pointer">
+                  <label
+                    htmlFor="privacy"
+                    className="text-xs font-body text-muted-foreground leading-snug cursor-pointer"
+                  >
                     I agree to the{" "}
-                    <span className="neon-text-orange font-bold">Privacy Policy</span>{" "}
+                    <span className="neon-text-orange font-bold">
+                      Privacy Policy
+                    </span>{" "}
                     and{" "}
-                    <span className="neon-text-orange font-bold">Terms of Service</span>
+                    <span className="neon-text-orange font-bold">
+                      Terms of Service
+                    </span>
                   </label>
                 </div>
 
@@ -544,9 +681,10 @@ export default function AuthPage() {
                   disabled={isLoading || !actor}
                   className="w-full h-11 font-display text-sm font-bold tracking-wider uppercase btn-glow mt-1"
                   style={{
-                    background: (isLoading || !actor)
-                      ? "oklch(0.45 0.1 45)"
-                      : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+                    background:
+                      isLoading || !actor
+                        ? "oklch(0.45 0.1 45)"
+                        : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
                     color: "oklch(0.08 0.01 240)",
                     border: "none",
                   }}
@@ -579,9 +717,13 @@ export default function AuthPage() {
               </form>
             ) : (
               /* ─── FORGOT PASSWORD FORM ─── */
-              <form onSubmit={handleForgotPassword} className="flex flex-col gap-3">
+              <form
+                onSubmit={handleForgotPassword}
+                className="flex flex-col gap-3"
+              >
                 <p className="text-xs font-body text-muted-foreground leading-relaxed">
-                  Contact admin to get your reset code, then enter it below to set a new password.
+                  Contact admin to get your reset code, then enter it below to
+                  set a new password.
                 </p>
 
                 <Input
@@ -619,7 +761,11 @@ export default function AuthPage() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     tabIndex={-1}
                   >
-                    {showFpPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showFpPwd ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
 

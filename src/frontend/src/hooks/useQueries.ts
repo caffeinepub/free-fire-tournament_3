@@ -1,9 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import type { Principal } from "@icp-sdk/core/principal";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import type { UserRole } from "../backend.d";
 import { useActor } from "./useActor";
 import { useLocalAuth } from "./useLocalAuth";
-import type { Principal } from "@icp-sdk/core/principal";
-import type { UserRole } from "../backend.d";
 
 const actorRetry = (failureCount: number, error: unknown) => {
   if (error instanceof Error && error.message === "Actor not available") {
@@ -47,7 +47,7 @@ export function useGetCallerUserProfile() {
   });
 
   // If timed out, pretend we're no longer loading so the app always shows content
-  const isLoading = timedOut ? false : (actorFetching || query.isLoading);
+  const isLoading = timedOut ? false : actorFetching || query.isLoading;
   // After timeout, also suppress error so profile page renders (just with empty data)
   const isError = timedOut ? false : query.isError;
 
@@ -55,7 +55,7 @@ export function useGetCallerUserProfile() {
     ...query,
     isLoading,
     isError,
-    isFetched: timedOut ? true : (!!actor && query.isFetched),
+    isFetched: timedOut ? true : !!actor && query.isFetched,
   };
 }
 
@@ -161,7 +161,8 @@ export function useGetLeaderboard(tournamentId: bigint | null) {
   return useQuery({
     queryKey: ["leaderboard", tournamentId?.toString()],
     queryFn: async () => {
-      if (!actor || tournamentId === null) throw new Error("Actor not available");
+      if (!actor || tournamentId === null)
+        throw new Error("Actor not available");
       return actor.getLeaderboard(tournamentId);
     },
     enabled: !!actor && !actorFetching && tournamentId !== null,
@@ -191,7 +192,8 @@ export function useGetTakenSlots(tournamentId: bigint | null) {
   return useQuery({
     queryKey: ["takenSlots", tournamentId?.toString()],
     queryFn: async () => {
-      if (!actor || tournamentId === null) throw new Error("Actor not available");
+      if (!actor || tournamentId === null)
+        throw new Error("Actor not available");
       return actor.getTakenSlots(tournamentId);
     },
     enabled: !!actor && !actorFetching && tournamentId !== null,
@@ -298,16 +300,26 @@ export function useJoinTournament() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ tournamentId, slotNumber }: { tournamentId: bigint; slotNumber: bigint }) => {
+    mutationFn: async ({
+      tournamentId,
+      slotNumber,
+    }: { tournamentId: bigint; slotNumber: bigint }) => {
       if (!actor) throw new Error("Actor not available");
       return actor.joinTournament(tournamentId, slotNumber);
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["tournaments"] });
-      qc.invalidateQueries({ queryKey: ["tournament", vars.tournamentId.toString()] });
-      qc.invalidateQueries({ queryKey: ["takenSlots", vars.tournamentId.toString()] });
+      qc.invalidateQueries({
+        queryKey: ["tournament", vars.tournamentId.toString()],
+      });
+      qc.invalidateQueries({
+        queryKey: ["takenSlots", vars.tournamentId.toString()],
+      });
       qc.invalidateQueries({ queryKey: ["transactionHistory"] });
       qc.invalidateQueries({ queryKey: ["currentUserProfile"] });
+      qc.invalidateQueries({
+        queryKey: ["callerJoinedSlot", vars.tournamentId.toString()],
+      });
     },
   });
 }
@@ -316,7 +328,10 @@ export function useAddCoins() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ user, amount }: { user: Principal; amount: bigint }) => {
+    mutationFn: async ({
+      user,
+      amount,
+    }: { user: Principal; amount: bigint }) => {
       if (!actor) throw new Error("Actor not available");
       return actor.addCoins(user, amount);
     },
@@ -357,7 +372,11 @@ export function useSubmitDepositRequest() {
       transactionReference: string;
     }) => {
       if (!actor) throw new Error("Actor not available");
-      return actor.submitDepositRequest(amount, paymentMethod, transactionReference);
+      return actor.submitDepositRequest(
+        amount,
+        paymentMethod,
+        transactionReference,
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["callerDepositRequests"] });
@@ -383,7 +402,10 @@ export function useSetPaymentNumbers() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ jazzCash, easyPaisa }: { jazzCash: string; easyPaisa: string }) => {
+    mutationFn: async ({
+      jazzCash,
+      easyPaisa,
+    }: { jazzCash: string; easyPaisa: string }) => {
       if (!actor) throw new Error("Actor not available");
       return actor.setPaymentNumbers(jazzCash, easyPaisa);
     },
@@ -572,7 +594,7 @@ export function useCreateTournament() {
         params.totalSlots,
         params.rules,
         params.prizeDistribution,
-        params.imageUrl ?? ""
+        params.imageUrl ?? "",
       );
     },
     onSuccess: () => {
@@ -599,12 +621,17 @@ export function usePostScores() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ tournamentId, scores }: { tournamentId: bigint; scores: Array<[Principal, bigint]> }) => {
+    mutationFn: async ({
+      tournamentId,
+      scores,
+    }: { tournamentId: bigint; scores: Array<[Principal, bigint]> }) => {
       if (!actor) throw new Error("Actor not available");
       return actor.postScores(tournamentId, scores);
     },
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["leaderboard", vars.tournamentId.toString()] });
+      qc.invalidateQueries({
+        queryKey: ["leaderboard", vars.tournamentId.toString()],
+      });
     },
   });
 }
@@ -638,7 +665,7 @@ export function useRegisterUser() {
         params.gameUID,
         params.mobileNo,
         params.email,
-        params.referCode
+        params.referCode,
       );
     },
     onSuccess: () => {
@@ -680,7 +707,7 @@ export function useUpdateUserInfo() {
         params.inGameName,
         params.gameUID,
         params.mobileNo,
-        params.email
+        params.email,
       );
     },
     onSuccess: () => {
@@ -695,7 +722,10 @@ export function useAddCoinsByLegendId() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ legendId, amount }: { legendId: bigint; amount: bigint }) => {
+    mutationFn: async ({
+      legendId,
+      amount,
+    }: { legendId: bigint; amount: bigint }) => {
       if (!actor) throw new Error("Actor not available");
       return actor.addCoinsByLegendId(legendId, amount);
     },
@@ -710,7 +740,10 @@ export function useRemoveCoinsByLegendId() {
   const { actor } = useActor();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ legendId, amount }: { legendId: bigint; amount: bigint }) => {
+    mutationFn: async ({
+      legendId,
+      amount,
+    }: { legendId: bigint; amount: bigint }) => {
       if (!actor) throw new Error("Actor not available");
       return actor.removeCoinsByLegendId(legendId, amount);
     },
@@ -757,6 +790,71 @@ export function useSetResetCode() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["resetCode"] });
+    },
+  });
+}
+
+// ─── Tournament Room Details ──────────────────────────────────────────────────
+
+export function useGetCallerJoinedSlot(tournamentId: bigint | null) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { isAuthenticated } = useLocalAuth();
+  return useQuery({
+    queryKey: ["callerJoinedSlot", tournamentId?.toString()],
+    queryFn: async () => {
+      if (!actor || tournamentId === null)
+        throw new Error("Actor not available");
+      return actor.getCallerJoinedSlot(tournamentId);
+    },
+    enabled:
+      !!actor && !actorFetching && tournamentId !== null && isAuthenticated,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+    refetchInterval: 10000,
+    staleTime: 5000,
+  });
+}
+
+export function useGetTournamentRoomDetails(
+  tournamentId: bigint | null,
+  hasJoined: boolean,
+) {
+  const { actor, isFetching: actorFetching } = useActor();
+  const { isAuthenticated } = useLocalAuth();
+  return useQuery({
+    queryKey: ["tournamentRoomDetails", tournamentId?.toString()],
+    queryFn: async () => {
+      if (!actor || tournamentId === null)
+        throw new Error("Actor not available");
+      return actor.getTournamentRoomDetails(tournamentId);
+    },
+    enabled:
+      !!actor &&
+      !actorFetching &&
+      tournamentId !== null &&
+      isAuthenticated &&
+      hasJoined,
+    retry: actorRetry,
+    retryDelay: actorRetryDelay,
+  });
+}
+
+export function useSetTournamentRoomDetails() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      tournamentId,
+      roomId,
+      roomPassword,
+    }: { tournamentId: bigint; roomId: string; roomPassword: string }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.setTournamentRoomDetails(tournamentId, roomId, roomPassword);
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({
+        queryKey: ["tournamentRoomDetails", vars.tournamentId.toString()],
+      });
     },
   });
 }

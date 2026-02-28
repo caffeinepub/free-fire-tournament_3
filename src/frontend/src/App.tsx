@@ -1,24 +1,24 @@
-import {
-  createRouter,
-  createRoute,
-  createRootRoute,
-  RouterProvider,
-  Outlet,
-} from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
-import { useLocalAuth } from "./hooks/useLocalAuth";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  Outlet,
+  RouterProvider,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import BottomNav from "./components/game/BottomNav";
+import TopHeader from "./components/game/TopHeader";
+import { useLocalAuth } from "./hooks/useLocalAuth";
+import AdminPage from "./pages/AdminPage";
 import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
-import MatchDetailPage from "./pages/MatchDetailPage";
-import WalletPage from "./pages/WalletPage";
-import ProfilePage from "./pages/ProfilePage";
-import AdminPage from "./pages/AdminPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
-import TopHeader from "./components/game/TopHeader";
-import BottomNav from "./components/game/BottomNav";
-import { Skeleton } from "@/components/ui/skeleton";
+import MatchDetailPage from "./pages/MatchDetailPage";
+import ProfilePage from "./pages/ProfilePage";
+import WalletPage from "./pages/WalletPage";
 
 // ─── Root Layout ──────────────────────────────────────────────────────────────
 
@@ -55,7 +55,10 @@ function RootLayout() {
         <div className="flex flex-col items-center gap-4">
           <div
             className="w-12 h-12 border-2 rounded-full animate-spin"
-            style={{ borderColor: "oklch(0.72 0.22 45)", borderTopColor: "transparent" }}
+            style={{
+              borderColor: "oklch(0.72 0.22 45)",
+              borderTopColor: "transparent",
+            }}
           />
           <p className="font-display text-sm text-muted-foreground tracking-wider">
             LOADING...
@@ -86,7 +89,9 @@ function RootLayout() {
 
         <main
           className="flex-1 overflow-y-auto"
-          style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom, 8px))" }}
+          style={{
+            paddingBottom: "calc(64px + env(safe-area-inset-bottom, 8px))",
+          }}
         >
           {!forceShow && slowWarning ? (
             <div className="flex flex-col gap-3 p-4 animate-pulse">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useActor } from "./useActor";
 
 export interface LocalUser {
@@ -81,7 +81,24 @@ export function useLocalAuth(): LocalAuthState {
       }
 
       const passwordHash = await hashPassword(password);
-      const result = await actor.login(email.trim().toLowerCase(), passwordHash);
+      let result: Awaited<ReturnType<typeof actor.login>>;
+      try {
+        result = await actor.login(email.trim().toLowerCase(), passwordHash);
+      } catch (rawErr) {
+        // Sanitize raw backend trap errors into readable messages
+        const msg = rawErr instanceof Error ? rawErr.message : String(rawErr);
+        if (
+          msg.toLowerCase().includes("anonymous") ||
+          msg.toLowerCase().includes("unauthorized")
+        ) {
+          throw new Error(
+            "Unable to connect to the server. Please reload the page and try again.",
+          );
+        }
+        throw new Error(
+          "Login failed. Please check your connection and try again.",
+        );
+      }
 
       if (result.__kind__ === "err") {
         throw new Error(result.err);
@@ -101,7 +118,7 @@ export function useLocalAuth(): LocalAuthState {
       setCurrentUser(user);
       setIsAuthenticated(true);
     },
-    [actor]
+    [actor],
   );
 
   const register = useCallback(
@@ -113,15 +130,38 @@ export function useLocalAuth(): LocalAuthState {
       const email = userData.email.trim().toLowerCase();
       const passwordHash = await hashPassword(userData.password);
 
-      const result = await actor.registerAccount(
-        email,
-        passwordHash,
-        userData.fullName,
-        userData.inGameName,
-        userData.gameUID,
-        userData.mobileNo,
-        userData.referCode ?? ""
-      );
+      let result: Awaited<ReturnType<typeof actor.registerAccount>>;
+      try {
+        result = await actor.registerAccount(
+          email,
+          passwordHash,
+          userData.fullName,
+          userData.inGameName,
+          userData.gameUID,
+          userData.mobileNo,
+          userData.referCode ?? "",
+        );
+      } catch (rawErr) {
+        // Sanitize raw backend trap errors into readable messages
+        const msg = rawErr instanceof Error ? rawErr.message : String(rawErr);
+        if (
+          msg.toLowerCase().includes("already") ||
+          msg.toLowerCase().includes("exist")
+        ) {
+          throw new Error("Email already taken. Please use another email");
+        }
+        if (
+          msg.toLowerCase().includes("anonymous") ||
+          msg.toLowerCase().includes("unauthorized")
+        ) {
+          throw new Error(
+            "Unable to connect to the server. Please reload the page and try again.",
+          );
+        }
+        throw new Error(
+          "Registration failed. Please check your connection and try again.",
+        );
+      }
 
       if (result.__kind__ === "err") {
         throw new Error(result.err);
@@ -130,7 +170,7 @@ export function useLocalAuth(): LocalAuthState {
       // Registration succeeded — do NOT auto-login.
       // AuthPage will switch to the login tab so the user signs in manually.
     },
-    [actor]
+    [actor],
   );
 
   const logout = useCallback((): void => {

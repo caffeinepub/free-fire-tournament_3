@@ -1,31 +1,30 @@
-import { useState } from "react";
-import { useRegisterUser } from "../../hooks/useQueries";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  User,
-  Gamepad2,
-  Hash,
-  Phone,
-  Mail,
   Eye,
   EyeOff,
+  Gamepad2,
   Gift,
+  Hash,
   Loader2,
+  Mail,
+  Phone,
+  User,
 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useLocalAuth } from "../../hooks/useLocalAuth";
+import { useRegisterUser } from "../../hooks/useQueries";
 
 // ─── Field wrapper with icon ──────────────────────────────────────────────────
 function FieldRow({
-  icon: Icon,
   label,
   optional,
   children,
 }: {
-  icon: React.ElementType;
+  icon?: React.ElementType;
   label: string;
   optional?: boolean;
   children: React.ReactNode;
@@ -115,7 +114,9 @@ function IconInput({
 }
 
 // ─── Main Registration Form ───────────────────────────────────────────────────
-export default function ProfileSetup({ onComplete }: { onComplete: () => void }) {
+export default function ProfileSetup({
+  onComplete,
+}: { onComplete: () => void }) {
   const registerMutation = useRegisterUser();
   const { logout } = useLocalAuth();
 
@@ -137,13 +138,34 @@ export default function ProfileSetup({ onComplete }: { onComplete: () => void })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!fullName.trim()) { toast.error("Full name is required"); return; }
-    if (!inGameName.trim()) { toast.error("In-Game name is required"); return; }
-    if (!mobileNo.trim()) { toast.error("Mobile number is required"); return; }
-    if (!email.trim()) { toast.error("Email address is required"); return; }
-    if (!password) { toast.error("Password is required"); return; }
-    if (password !== confirmPassword) { toast.error("Passwords do not match"); return; }
-    if (!privacyChecked) { toast.error("Please accept the privacy policy"); return; }
+    if (!fullName.trim()) {
+      toast.error("Full name is required");
+      return;
+    }
+    if (!inGameName.trim()) {
+      toast.error("In-Game name is required");
+      return;
+    }
+    if (!mobileNo.trim()) {
+      toast.error("Mobile number is required");
+      return;
+    }
+    if (!email.trim()) {
+      toast.error("Email address is required");
+      return;
+    }
+    if (!password) {
+      toast.error("Password is required");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (!privacyChecked) {
+      toast.error("Please accept the privacy policy");
+      return;
+    }
 
     try {
       await registerMutation.mutateAsync({
@@ -187,7 +209,9 @@ export default function ProfileSetup({ onComplete }: { onComplete: () => void })
             src="/assets/generated/ff-logo-transparent.dim_200x200.png"
             alt="FF Arena"
             className="w-20 h-20 object-contain"
-            style={{ filter: "drop-shadow(0 0 16px oklch(0.72 0.22 45 / 0.6))" }}
+            style={{
+              filter: "drop-shadow(0 0 16px oklch(0.72 0.22 45 / 0.6))",
+            }}
           />
           <div className="text-center">
             <h1
@@ -388,10 +412,9 @@ export default function ProfileSetup({ onComplete }: { onComplete: () => void })
               disabled={registerMutation.isPending || !privacyChecked}
               className="w-full h-12 font-display font-black text-base tracking-widest uppercase mt-1 rounded-xl"
               style={{
-                background:
-                  !privacyChecked
-                    ? "oklch(0.25 0.02 240)"
-                    : "linear-gradient(135deg, oklch(0.62 0.25 25), oklch(0.72 0.22 45))",
+                background: !privacyChecked
+                  ? "oklch(0.25 0.02 240)"
+                  : "linear-gradient(135deg, oklch(0.62 0.25 25), oklch(0.72 0.22 45))",
                 color: !privacyChecked
                   ? "oklch(0.45 0.02 240)"
                   : "oklch(0.97 0.005 80)",

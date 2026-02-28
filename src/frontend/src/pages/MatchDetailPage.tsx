@@ -1,44 +1,109 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "@tanstack/react-router";
-import { useLocalAuth } from "../hooks/useLocalAuth";
-import {
-  useGetTournament,
-  useGetLeaderboard,
-  useGetTakenSlots,
-  useJoinTournament,
-  useGetCallerUserProfile,
-  useGetCategories,
-} from "../hooks/useQueries";
-import { TournamentStatus } from "../backend.d";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import {
   ArrowLeft,
-  Trophy,
-  Users,
+  Ban,
   ChevronDown,
   ChevronUp,
+  Clock,
+  Copy,
+  Eye,
+  Lock,
   Medal,
   Swords,
-  Clock,
-  Ban,
+  Trophy,
+  Users,
 } from "lucide-react";
-import { LCoinIcon } from "../components/game/LCoinIcon";
+import { useState } from "react";
 import { toast } from "sonner";
+import { TournamentStatus } from "../backend.d";
+import { LCoinIcon } from "../components/game/LCoinIcon";
+import { useLocalAuth } from "../hooks/useLocalAuth";
+import {
+  useGetCallerJoinedSlot,
+  useGetCallerUserProfile,
+  useGetCategories,
+  useGetLeaderboard,
+  useGetTakenSlots,
+  useGetTournament,
+  useGetTournamentRoomDetails,
+  useJoinTournament,
+} from "../hooks/useQueries";
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: TournamentStatus }) {
   const config = {
-    [TournamentStatus.active]: { label: "LIVE", cls: "bg-neon-green/20 text-neon-green border-neon-green/40" },
-    [TournamentStatus.upcoming]: { label: "UPCOMING", cls: "bg-neon-blue/20 text-neon-blue border-neon-blue/40" },
-    [TournamentStatus.completed]: { label: "ENDED", cls: "bg-muted/40 text-muted-foreground border-border" },
+    [TournamentStatus.active]: {
+      label: "LIVE",
+      cls: "bg-neon-green/20 text-neon-green border-neon-green/40",
+    },
+    [TournamentStatus.upcoming]: {
+      label: "UPCOMING",
+      cls: "bg-neon-blue/20 text-neon-blue border-neon-blue/40",
+    },
+    [TournamentStatus.completed]: {
+      label: "ENDED",
+      cls: "bg-muted/40 text-muted-foreground border-border",
+    },
   };
   const c = config[status];
   return (
-    <span className={`text-[10px] font-display font-bold px-2 py-0.5 rounded-full tracking-widest border ${c.cls}`}>
+    <span
+      className={`text-[10px] font-display font-bold px-2 py-0.5 rounded-full tracking-widest border ${c.cls}`}
+    >
       {c.label}
     </span>
+  );
+}
+
+// ─── Room Detail Row ──────────────────────────────────────────────────────────
+
+function RoomDetailRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    try {
+      navigator.clipboard.writeText(value);
+    } catch {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div
+      className="rounded-xl p-4 flex items-center justify-between gap-3"
+      style={{
+        background: "oklch(0.16 0.025 220)",
+        border: "1px solid oklch(0.55 0.20 220 / 0.25)",
+      }}
+    >
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-display tracking-widest text-muted-foreground mb-1">
+          {label}
+        </p>
+        <p className="font-mono-game font-bold text-lg text-foreground truncate">
+          {value || "—"}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={copy}
+        className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+        style={{
+          background: copied
+            ? "oklch(0.55 0.20 145 / 0.2)"
+            : "oklch(0.22 0.02 240)",
+          border: "1px solid oklch(0.35 0.02 240)",
+        }}
+      >
+        <Copy
+          className="w-4 h-4"
+          style={{
+            color: copied ? "oklch(0.65 0.22 145)" : "oklch(0.65 0.22 220)",
+          }}
+        />
+      </button>
+    </div>
   );
 }
 
@@ -63,13 +128,18 @@ function SlotGrid({
   const total = Number(totalSlots);
 
   return (
-    <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(44px, 1fr))" }}>
+    <div
+      className="grid gap-1.5"
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(44px, 1fr))" }}
+    >
       {Array.from({ length: total }, (_, i) => {
         const num = BigInt(i + 1);
         const numStr = num.toString();
         const isMySlot = mySlot?.toString() === numStr;
         const isTaken = takenSet.has(numStr) && !isMySlot;
         const isSelected = selectedSlot?.toString() === numStr;
+        // If user already joined a slot, disable all other slots
+        const isLockedOut = mySlot !== null && !isMySlot;
 
         let cls = "";
         if (isMySlot) cls = "slot-mine";
@@ -77,17 +147,28 @@ function SlotGrid({
         else if (isSelected) cls = "slot-selected";
         else cls = "slot-available";
 
+        const isDisabled = isTaken || disabled || isLockedOut;
+
         return (
           <button
             type="button"
             key={numStr}
-            disabled={isTaken || disabled}
-            onClick={() => !isTaken && onSelect(num)}
-            className={`h-11 rounded-lg text-xs font-display font-bold transition-all duration-100 ${cls} ${
-              !isTaken && !disabled ? "active:scale-90" : ""
+            disabled={isDisabled}
+            onClick={() => !isDisabled && onSelect(num)}
+            className={`h-11 rounded-lg text-xs font-display font-bold transition-all duration-100 relative ${cls} ${
+              !isDisabled ? "active:scale-90" : ""
             }`}
           >
-            {num.toString()}
+            {isMySlot ? (
+              <>
+                <span className="block leading-none">{num.toString()}</span>
+                <span className="block text-[8px] leading-none mt-0.5 tracking-wider opacity-90">
+                  IN
+                </span>
+              </>
+            ) : (
+              num.toString()
+            )}
           </button>
         );
       })}
@@ -114,7 +195,9 @@ function LeaderboardTab({ tournamentId }: { tournamentId: bigint }) {
     return (
       <div className="flex flex-col items-center justify-center h-32 gap-2">
         <Trophy className="w-8 h-8 text-muted-foreground/40" />
-        <p className="text-muted-foreground text-sm font-body">No scores posted yet</p>
+        <p className="text-muted-foreground text-sm font-body">
+          No scores posted yet
+        </p>
       </div>
     );
   }
@@ -122,17 +205,16 @@ function LeaderboardTab({ tournamentId }: { tournamentId: bigint }) {
   const sorted = [...entries].sort((a, b) => (b.score > a.score ? 1 : -1));
 
   const rankColors = [
-    "oklch(0.82 0.18 85)",  // gold
+    "oklch(0.82 0.18 85)", // gold
     "oklch(0.75 0.04 240)", // silver
-    "oklch(0.6 0.12 55)",   // bronze
+    "oklch(0.6 0.12 55)", // bronze
   ];
 
   return (
     <div className="flex flex-col gap-2 p-4">
       {sorted.map((entry, idx) => {
         const rankColor = rankColors[idx] ?? "oklch(0.55 0.02 240)";
-        const principalShort =
-          entry.player.toString().slice(0, 5) + "..." + entry.player.toString().slice(-5);
+        const principalShort = `${entry.player.toString().slice(0, 5)}...${entry.player.toString().slice(-5)}`;
         return (
           <div
             key={`${entry.player.toString()}-${idx}`}
@@ -152,7 +234,11 @@ function LeaderboardTab({ tournamentId }: { tournamentId: bigint }) {
                 color: rankColor,
               }}
             >
-              {idx < 3 ? <Medal className="w-4 h-4" style={{ color: rankColor }} /> : idx + 1}
+              {idx < 3 ? (
+                <Medal className="w-4 h-4" style={{ color: rankColor }} />
+              ) : (
+                idx + 1
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-display font-bold text-foreground truncate">
@@ -177,15 +263,16 @@ function LeaderboardTab({ tournamentId }: { tournamentId: bigint }) {
 function DetailsTab({
   tournamentId,
   status,
-  entryFee,
+  entryFee: _entryFee,
   totalSlots,
   rules,
   prizeDistribution,
   selectedSlot,
   setSelectedSlot,
   joinMutation,
-  hasEnoughBalance,
+  hasEnoughBalance: _hasEnoughBalance,
   isLoggedIn,
+  myJoinedSlot,
 }: {
   tournamentId: bigint;
   status: TournamentStatus;
@@ -198,15 +285,15 @@ function DetailsTab({
   joinMutation: ReturnType<typeof useJoinTournament>;
   hasEnoughBalance: boolean;
   isLoggedIn: boolean;
+  myJoinedSlot: bigint | null;
 }) {
   const [rulesOpen, setRulesOpen] = useState(false);
-  const { data: takenSlots, isLoading: slotsLoading } = useGetTakenSlots(tournamentId);
+  const { data: takenSlots, isLoading: slotsLoading } =
+    useGetTakenSlots(tournamentId);
 
   const isActive = status === TournamentStatus.active;
   const isUpcoming = status === TournamentStatus.upcoming;
   const canJoin = (isActive || isUpcoming) && isLoggedIn;
-
-  const mySlot = null; // Would need per-user slot tracking from backend
 
   const rankColors = [
     "oklch(0.82 0.18 85)",
@@ -216,24 +303,32 @@ function DetailsTab({
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* Slot Selection (only when active + logged in) */}
+      {/* Slot Selection (only when active/upcoming + logged in) */}
       {canJoin && (
         <div
           className="rounded-xl p-4 flex flex-col gap-3"
           style={{
-            background: "linear-gradient(135deg, oklch(0.14 0.025 45), oklch(0.12 0.015 240))",
+            background:
+              "linear-gradient(135deg, oklch(0.14 0.025 45), oklch(0.12 0.015 240))",
             border: "1px solid oklch(0.72 0.22 45 / 0.3)",
           }}
         >
           <div className="flex items-center justify-between">
             <span className="font-display text-base font-bold text-foreground">
-              Select Your Slot
+              {myJoinedSlot !== null ? "Your Slot" : "Select Your Slot"}
             </span>
-            {selectedSlot && (
+            {myJoinedSlot !== null ? (
+              <span
+                className="text-sm font-display"
+                style={{ color: "oklch(0.65 0.22 220)" }}
+              >
+                Slot #{myJoinedSlot.toString()} joined ✓
+              </span>
+            ) : selectedSlot ? (
               <span className="text-sm font-display neon-text-orange">
                 Slot #{selectedSlot.toString()} selected
               </span>
-            )}
+            ) : null}
           </div>
 
           {slotsLoading ? (
@@ -242,14 +337,14 @@ function DetailsTab({
             <SlotGrid
               totalSlots={totalSlots}
               takenSlots={takenSlots ?? []}
-              mySlot={mySlot}
+              mySlot={myJoinedSlot}
               selectedSlot={selectedSlot}
-              onSelect={setSelectedSlot}
-              disabled={joinMutation.isPending}
+              onSelect={myJoinedSlot !== null ? () => {} : setSelectedSlot}
+              disabled={joinMutation.isPending || myJoinedSlot !== null}
             />
           )}
 
-          <div className="flex gap-3 text-xs font-body text-muted-foreground">
+          <div className="flex gap-3 text-xs font-body text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1">
               <span className="w-3 h-3 rounded slot-available inline-block" />
               Available
@@ -262,6 +357,10 @@ function DetailsTab({
               <span className="w-3 h-3 rounded slot-selected inline-block" />
               Selected
             </span>
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 rounded slot-mine inline-block" />
+              Yours
+            </span>
           </div>
         </div>
       )}
@@ -269,23 +368,31 @@ function DetailsTab({
       {!isLoggedIn && (
         <div
           className="rounded-xl p-4 text-center"
-          style={{ background: "oklch(0.14 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
+          style={{
+            background: "oklch(0.14 0.02 240)",
+            border: "1px solid oklch(0.25 0.02 240)",
+          }}
         >
-          <p className="text-muted-foreground text-sm font-body">Sign in to join this tournament</p>
+          <p className="text-muted-foreground text-sm font-body">
+            Sign in to join this tournament
+          </p>
         </div>
       )}
 
       {isLoggedIn && !isActive && !isUpcoming && (
         <div
           className="rounded-xl p-4 text-center"
-          style={{ background: "oklch(0.14 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
+          style={{
+            background: "oklch(0.14 0.02 240)",
+            border: "1px solid oklch(0.25 0.02 240)",
+          }}
         >
           <p className="text-muted-foreground text-sm font-body">
             Tournament has ended
           </p>
         </div>
       )}
-      {isLoggedIn && isUpcoming && (
+      {isLoggedIn && isUpcoming && myJoinedSlot === null && (
         <div
           className="rounded-xl p-3 flex items-center gap-2"
           style={{
@@ -293,8 +400,14 @@ function DetailsTab({
             border: "1px solid oklch(0.72 0.22 45 / 0.3)",
           }}
         >
-          <Clock className="w-4 h-4 shrink-0" style={{ color: "oklch(0.72 0.22 45)" }} />
-          <p className="text-sm font-body" style={{ color: "oklch(0.72 0.22 45)" }}>
+          <Clock
+            className="w-4 h-4 shrink-0"
+            style={{ color: "oklch(0.72 0.22 45)" }}
+          />
+          <p
+            className="text-sm font-body"
+            style={{ color: "oklch(0.72 0.22 45)" }}
+          >
             Match starts soon -- select your slot and wait!
           </p>
         </div>
@@ -309,12 +422,18 @@ function DetailsTab({
           className="px-4 py-3 flex items-center gap-2"
           style={{ background: "oklch(0.14 0.02 240)" }}
         >
-          <Trophy className="w-4 h-4" style={{ color: "oklch(0.82 0.18 85)" }} />
+          <Trophy
+            className="w-4 h-4"
+            style={{ color: "oklch(0.82 0.18 85)" }}
+          />
           <span className="font-display font-bold text-sm tracking-wider">
             PRIZE DISTRIBUTION
           </span>
         </div>
-        <div className="flex flex-col divide-y" style={{ borderColor: "oklch(0.2 0.02 240)" }}>
+        <div
+          className="flex flex-col divide-y"
+          style={{ borderColor: "oklch(0.2 0.02 240)" }}
+        >
           {prizeDistribution.length === 0 ? (
             <div className="px-4 py-3 text-muted-foreground text-sm font-body text-center">
               No prize distribution set
@@ -340,12 +459,21 @@ function DetailsTab({
                       {idx + 1}
                     </span>
                     <span className="text-sm font-body text-muted-foreground">
-                      {idx === 0 ? "1st Place" : idx === 1 ? "2nd Place" : idx === 2 ? "3rd Place" : `${idx + 1}th Place`}
+                      {idx === 0
+                        ? "1st Place"
+                        : idx === 1
+                          ? "2nd Place"
+                          : idx === 2
+                            ? "3rd Place"
+                            : `${idx + 1}th Place`}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
                     <LCoinIcon size={14} />
-                    <span className="font-display font-bold text-sm" style={{ color: rankColor }}>
+                    <span
+                      className="font-display font-bold text-sm"
+                      style={{ color: rankColor }}
+                    >
                       {prize.toString()}
                     </span>
                   </div>
@@ -367,7 +495,9 @@ function DetailsTab({
           style={{ background: "oklch(0.14 0.02 240)" }}
           onClick={() => setRulesOpen((o) => !o)}
         >
-          <span className="font-display font-bold text-sm tracking-wider">RULES</span>
+          <span className="font-display font-bold text-sm tracking-wider">
+            RULES
+          </span>
           {rulesOpen ? (
             <ChevronUp className="w-4 h-4 text-muted-foreground" />
           ) : (
@@ -375,7 +505,10 @@ function DetailsTab({
           )}
         </button>
         {rulesOpen && (
-          <div className="px-4 py-3" style={{ background: "oklch(0.11 0.015 240)" }}>
+          <div
+            className="px-4 py-3"
+            style={{ background: "oklch(0.11 0.015 240)" }}
+          >
             <p className="text-sm font-body text-muted-foreground whitespace-pre-line leading-relaxed">
               {rules || "No rules specified."}
             </p>
@@ -391,9 +524,12 @@ function DetailsTab({
 export default function MatchDetailPage() {
   const { id } = useParams({ from: "/match/$id" });
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"details" | "leaderboard">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "leaderboard">(
+    "details",
+  );
   const [selectedSlot, setSelectedSlot] = useState<bigint | null>(null);
   const [isJoinAnimating, setIsJoinAnimating] = useState(false);
+  const [showRoomDetails, setShowRoomDetails] = useState(false);
 
   const tournamentId = BigInt(id);
   const { data: tournament, isLoading } = useGetTournament(tournamentId);
@@ -402,17 +538,34 @@ export default function MatchDetailPage() {
   const { data: userProfile } = useGetCallerUserProfile();
   const joinMutation = useJoinTournament();
 
-  const categoryName = categories?.find(
-    (c) => c.id === tournament?.categoryId
-  )?.name ?? "";
+  // Get the caller's joined slot for this tournament
+  const { data: joinedSlotRaw } = useGetCallerJoinedSlot(tournamentId);
+  // backend returns bigint | null directly
+  const myJoinedSlot: bigint | null =
+    joinedSlotRaw !== undefined && joinedSlotRaw !== null
+      ? joinedSlotRaw
+      : null;
+  const hasJoined = myJoinedSlot !== null;
+
+  // Get room details if user has joined
+  const roomDetailsQuery = useGetTournamentRoomDetails(tournamentId, hasJoined);
+  const roomDetailsRaw = roomDetailsQuery?.data;
+  const roomDetails =
+    roomDetailsRaw !== undefined && roomDetailsRaw !== null
+      ? roomDetailsRaw
+      : null;
+
+  const categoryName =
+    categories?.find((c) => c.id === tournament?.categoryId)?.name ?? "";
 
   const isActive = tournament?.status === TournamentStatus.active;
   const isUpcoming = tournament?.status === TournamentStatus.upcoming;
   const canJoinNow = isActive || isUpcoming; // allow slot reservation for upcoming too
   const isLoggedIn = isAuthenticated;
-  const hasEnoughBalance = userProfile && tournament
-    ? userProfile.balance >= tournament.entryFee
-    : false;
+  const hasEnoughBalance =
+    userProfile && tournament
+      ? userProfile.balance >= tournament.entryFee
+      : false;
 
   const handleJoin = async () => {
     if (!isLoggedIn) {
@@ -434,15 +587,21 @@ export default function MatchDetailPage() {
       return;
     }
     try {
-      await joinMutation.mutateAsync({ tournamentId, slotNumber: selectedSlot });
+      await joinMutation.mutateAsync({
+        tournamentId,
+        slotNumber: selectedSlot,
+      });
       if (isUpcoming) {
-        toast.success(`Slot #${selectedSlot} reserved! You're in -- wait for the match to start!`);
+        toast.success(
+          `Slot #${selectedSlot} reserved! You're in -- wait for the match to start!`,
+        );
       } else {
         toast.success(`Joined slot #${selectedSlot}! Good luck!`);
       }
       setSelectedSlot(null);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to join tournament";
+      const msg =
+        err instanceof Error ? err.message : "Failed to join tournament";
       toast.error(msg);
     }
   };
@@ -484,7 +643,10 @@ export default function MatchDetailPage() {
           type="button"
           onClick={() => navigate({ to: "/" })}
           className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
-          style={{ background: "oklch(0.16 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
+          style={{
+            background: "oklch(0.16 0.02 240)",
+            border: "1px solid oklch(0.25 0.02 240)",
+          }}
         >
           <ArrowLeft className="w-4 h-4 text-foreground" />
         </button>
@@ -500,17 +662,23 @@ export default function MatchDetailPage() {
       <div
         className="mx-4 mt-2 rounded-xl p-4"
         style={{
-          background: "linear-gradient(135deg, oklch(0.13 0.02 240), oklch(0.1 0.015 260))",
+          background:
+            "linear-gradient(135deg, oklch(0.13 0.02 240), oklch(0.1 0.015 260))",
           border: "1px solid oklch(0.25 0.02 240)",
         }}
       >
         {tournament.imageUrl && (
-          <div className="w-full rounded-lg overflow-hidden mb-3" style={{ height: "140px" }}>
+          <div
+            className="w-full rounded-lg overflow-hidden mb-3"
+            style={{ height: "140px" }}
+          >
             <img
               src={tournament.imageUrl}
               alt={tournament.title}
               className="w-full h-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
             />
           </div>
         )}
@@ -527,29 +695,53 @@ export default function MatchDetailPage() {
           </span>
         )}
         <div className="grid grid-cols-3 gap-3 mt-3">
-          <div className="flex flex-col items-center gap-1 p-2 rounded-lg" style={{ background: "oklch(0.09 0.01 240)" }}>
+          <div
+            className="flex flex-col items-center gap-1 p-2 rounded-lg"
+            style={{ background: "oklch(0.09 0.01 240)" }}
+          >
             <LCoinIcon size={18} />
-            <span className="text-[10px] font-body text-muted-foreground">Entry</span>
-            <span className="text-sm font-display font-bold neon-text-orange">{tournament.entryFee.toString()}</span>
+            <span className="text-[10px] font-body text-muted-foreground">
+              Entry
+            </span>
+            <span className="text-sm font-display font-bold neon-text-orange">
+              {tournament.entryFee.toString()}
+            </span>
           </div>
-          <div className="flex flex-col items-center gap-1 p-2 rounded-lg" style={{ background: "oklch(0.09 0.01 240)" }}>
-            <Trophy className="w-4 h-4" style={{ color: "oklch(0.82 0.18 85)" }} />
-            <span className="text-[10px] font-body text-muted-foreground">Prize</span>
-            <span className="text-sm font-display font-bold" style={{ color: "oklch(0.82 0.18 85)" }}>
+          <div
+            className="flex flex-col items-center gap-1 p-2 rounded-lg"
+            style={{ background: "oklch(0.09 0.01 240)" }}
+          >
+            <Trophy
+              className="w-4 h-4"
+              style={{ color: "oklch(0.82 0.18 85)" }}
+            />
+            <span className="text-[10px] font-body text-muted-foreground">
+              Prize
+            </span>
+            <span
+              className="text-sm font-display font-bold"
+              style={{ color: "oklch(0.82 0.18 85)" }}
+            >
               {tournament.prizePool.toString()}
             </span>
           </div>
-          <div className="flex flex-col items-center gap-1 p-2 rounded-lg" style={{ background: "oklch(0.09 0.01 240)" }}>
+          <div
+            className="flex flex-col items-center gap-1 p-2 rounded-lg"
+            style={{ background: "oklch(0.09 0.01 240)" }}
+          >
             <Users className="w-4 h-4 text-neon-blue" />
-            <span className="text-[10px] font-body text-muted-foreground">Slots</span>
+            <span className="text-[10px] font-body text-muted-foreground">
+              Slots
+            </span>
             <span className="text-sm font-display font-bold text-neon-blue">
-              {tournament.slotsFilled.toString()}/{tournament.totalSlots.toString()}
+              {tournament.slotsFilled.toString()}/
+              {tournament.totalSlots.toString()}
             </span>
           </div>
         </div>
       </div>
 
-      {/* ── JOIN BUTTON (always visible above tabs) ─────────────────────── */}
+      {/* ── JOIN / VIEW DETAILS BUTTON (always visible above tabs) ─────────── */}
       <style>{`
         @keyframes joinRingExpand {
           0%   { transform: scale(1);   opacity: 0.85; }
@@ -577,11 +769,21 @@ export default function MatchDetailPage() {
           0%, 100% { opacity: 0.7; }
           50%       { opacity: 1; }
         }
+        @keyframes viewDetailsPulse {
+          0%, 100% { box-shadow: 0 0 24px oklch(0.55 0.20 220 / 0.55), 0 0 60px oklch(0.55 0.20 220 / 0.20), inset 0 1px 0 oklch(1 0 0 / 0.15); }
+          50%       { box-shadow: 0 0 40px oklch(0.65 0.24 220 / 0.80), 0 0 80px oklch(0.55 0.20 220 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.15); }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to   { transform: translateY(0);    opacity: 1; }
+        }
+        .animate-slide-up-modal {
+          animation: slideUp 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+        }
       `}</style>
       <div className="px-4 pt-3 pb-0">
         {/* Wrapper keeps overflow visible for the burst */}
         <div style={{ position: "relative", isolation: "isolate" }}>
-
           {/* ── Burst layer — uses a 0×0 anchor at true button center ── */}
           {isJoinAnimating && (
             <div
@@ -595,11 +797,18 @@ export default function MatchDetailPage() {
               }}
             >
               {/* Zero-size anchor at the exact center of the button */}
-              <div style={{ position: "absolute", top: "50%", left: "50%", width: 0, height: 0 }}>
-
+              <div
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  width: 0,
+                  height: 0,
+                }}
+              >
                 {/* Expanding rings — centered on the anchor */}
                 {[
-                  { delay: 0,   thick: 2,   opacity: 0.85, w: 260, h: 48 },
+                  { delay: 0, thick: 2, opacity: 0.85, w: 260, h: 48 },
                   { delay: 120, thick: 1.6, opacity: 0.67, w: 260, h: 48 },
                   { delay: 240, thick: 1.2, opacity: 0.49, w: 260, h: 48 },
                   { delay: 360, thick: 0.8, opacity: 0.31, w: 260, h: 48 },
@@ -621,37 +830,40 @@ export default function MatchDetailPage() {
                 ))}
 
                 {/* Light rays radiating outward from anchor */}
-                {[0, 30, 60, 90, 120, 150, 210, 270, 330].map((angle, rayIdx) => {
-                  const len = 55 + (rayIdx % 3) * 20;
-                  const thick = rayIdx % 2 === 0 ? 2.5 : 1.5;
-                  const delayMs = 30 + rayIdx * 20;
-                  return (
-                    <div
-                      key={`ray-${angle}`}
-                      style={{
-                        position: "absolute",
-                        top: `${-thick / 2}px`,
-                        left: "0px",
-                        width: `${len}px`,
-                        height: `${thick}px`,
-                        borderRadius: "999px",
-                        background: `linear-gradient(90deg, oklch(0.75 0.27 145), transparent)`,
-                        transformOrigin: "0% 50%",
-                        transform: `rotate(${angle}deg) scaleX(0)`,
-                        animation: `joinRay 620ms ease-out ${delayMs}ms forwards`,
-                        boxShadow: `0 0 4px oklch(0.80 0.28 145 / 0.7)`,
-                      }}
-                    />
-                  );
-                })}
+                {[0, 30, 60, 90, 120, 150, 210, 270, 330].map(
+                  (angle, rayIdx) => {
+                    const len = 55 + (rayIdx % 3) * 20;
+                    const thick = rayIdx % 2 === 0 ? 2.5 : 1.5;
+                    const delayMs = 30 + rayIdx * 20;
+                    return (
+                      <div
+                        key={`ray-${angle}`}
+                        style={{
+                          position: "absolute",
+                          top: `${-thick / 2}px`,
+                          left: "0px",
+                          width: `${len}px`,
+                          height: `${thick}px`,
+                          borderRadius: "999px",
+                          background:
+                            "linear-gradient(90deg, oklch(0.75 0.27 145), transparent)",
+                          transformOrigin: "0% 50%",
+                          transform: `rotate(${angle}deg) scaleX(0)`,
+                          animation: `joinRay 620ms ease-out ${delayMs}ms forwards`,
+                          boxShadow: "0 0 4px oklch(0.80 0.28 145 / 0.7)",
+                        }}
+                      />
+                    );
+                  },
+                )}
 
                 {/* Sparkle dots flying out from anchor */}
                 {[
-                  { angle: 45,  dist: 60 },
+                  { angle: 45, dist: 60 },
                   { angle: 135, dist: 55 },
                   { angle: 225, dist: 62 },
                   { angle: 315, dist: 58 },
-                  { angle: 10,  dist: 48 },
+                  { angle: 10, dist: 48 },
                   { angle: 170, dist: 50 },
                 ].map(({ angle, dist }, sparkIdx) => {
                   const rad = (angle * Math.PI) / 180;
@@ -661,25 +873,30 @@ export default function MatchDetailPage() {
                   return (
                     <div
                       key={`spark-${angle}`}
-                      style={{
-                        position: "absolute",
-                        top: `${-sz / 2}px`,
-                        left: `${-sz / 2}px`,
-                        width: `${sz}px`,
-                        height: `${sz}px`,
-                        borderRadius: "50%",
-                        background: sparkIdx % 3 === 0 ? "#ffffff" : "oklch(0.85 0.25 145)",
-                        boxShadow: `0 0 6px 2px ${sparkIdx % 3 === 0 ? "#ffffffcc" : "oklch(0.80 0.28 145 / 0.9)"}`,
-                        // @ts-ignore -- CSS custom properties
-                        "--dx": `${dx}px`,
-                        "--dy": `${dy}px`,
-                        animation: `joinSparkle 700ms ease-out ${sparkIdx * 50}ms forwards`,
-                      } as React.CSSProperties}
+                      style={
+                        {
+                          position: "absolute",
+                          top: `${-sz / 2}px`,
+                          left: `${-sz / 2}px`,
+                          width: `${sz}px`,
+                          height: `${sz}px`,
+                          borderRadius: "50%",
+                          background:
+                            sparkIdx % 3 === 0
+                              ? "#ffffff"
+                              : "oklch(0.85 0.25 145)",
+                          boxShadow: `0 0 6px 2px ${sparkIdx % 3 === 0 ? "#ffffffcc" : "oklch(0.80 0.28 145 / 0.9)"}`,
+                          // @ts-ignore -- CSS custom properties
+                          "--dx": `${dx}px`,
+                          "--dy": `${dy}px`,
+                          animation: `joinSparkle 700ms ease-out ${sparkIdx * 50}ms forwards`,
+                        } as React.CSSProperties
+                      }
                     />
                   );
                 })}
-
-              </div>{/* end anchor */}
+              </div>
+              {/* end anchor */}
 
               {/* Centre flash — covers full button area */}
               <div
@@ -687,15 +904,35 @@ export default function MatchDetailPage() {
                   position: "absolute",
                   inset: 0,
                   borderRadius: "12px",
-                  background: "radial-gradient(ellipse at center, oklch(0.95 0.15 145 / 0.75) 0%, transparent 70%)",
+                  background:
+                    "radial-gradient(ellipse at center, oklch(0.95 0.15 145 / 0.75) 0%, transparent 70%)",
                   animation: "joinFlash 400ms ease-out 0ms forwards",
                 }}
               />
             </div>
           )}
 
-          {/* ── The button itself — appearance changes per tournament status ── */}
-          {tournament.status === TournamentStatus.completed ? (
+          {/* ── The button itself — appearance changes per state ── */}
+          {hasJoined ? (
+            /* JOINED — sky blue VIEW DETAILS button */
+            <button
+              type="button"
+              onClick={() => setShowRoomDetails(true)}
+              className="w-full h-12 rounded-xl font-display font-black text-base tracking-[0.2em] uppercase flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97]"
+              style={{
+                background:
+                  "linear-gradient(135deg, oklch(0.55 0.20 220), oklch(0.45 0.18 230))",
+                color: "#ffffff",
+                border: "1px solid oklch(0.65 0.22 220 / 0.6)",
+                boxShadow:
+                  "0 0 24px oklch(0.55 0.20 220 / 0.55), 0 0 60px oklch(0.55 0.20 220 / 0.20), inset 0 1px 0 oklch(1 0 0 / 0.15)",
+                animation: "viewDetailsPulse 2.4s ease-in-out infinite",
+              }}
+            >
+              <Eye className="w-4 h-4 shrink-0" />
+              VIEW DETAILS
+            </button>
+          ) : tournament.status === TournamentStatus.completed ? (
             /* COMPLETED — dark "ENDED" */
             <button
               type="button"
@@ -704,7 +941,8 @@ export default function MatchDetailPage() {
               style={{
                 position: "relative",
                 zIndex: 1,
-                background: "linear-gradient(135deg, oklch(0.16 0.015 240), oklch(0.13 0.01 240))",
+                background:
+                  "linear-gradient(135deg, oklch(0.16 0.015 240), oklch(0.13 0.01 240))",
                 color: "oklch(0.42 0.03 240)",
                 border: "1px solid oklch(0.24 0.015 240)",
                 cursor: "not-allowed",
@@ -714,7 +952,7 @@ export default function MatchDetailPage() {
               ENDED
             </button>
           ) : (
-            /* ACTIVE — green glowing JOIN */
+            /* ACTIVE / UPCOMING — green glowing JOIN */
             <button
               type="button"
               onClick={() => {
@@ -733,7 +971,9 @@ export default function MatchDetailPage() {
                   ? "oklch(0.45 0.15 145)"
                   : "linear-gradient(135deg, oklch(0.60 0.22 145), oklch(0.52 0.20 150))",
                 color: "#ffffff",
-                animation: !joinMutation.isPending ? "joinGlowPulse 2.4s ease-in-out infinite" : undefined,
+                animation: !joinMutation.isPending
+                  ? "joinGlowPulse 2.4s ease-in-out infinite"
+                  : undefined,
                 border: "1px solid oklch(0.68 0.22 145 / 0.5)",
               }}
             >
@@ -741,7 +981,10 @@ export default function MatchDetailPage() {
                 <>
                   <span
                     className="w-4 h-4 border-2 rounded-full animate-spin shrink-0"
-                    style={{ borderColor: "#ffffff", borderTopColor: "transparent" }}
+                    style={{
+                      borderColor: "#ffffff",
+                      borderTopColor: "transparent",
+                    }}
                   />
                   JOINING...
                 </>
@@ -786,9 +1029,90 @@ export default function MatchDetailPage() {
           joinMutation={joinMutation}
           hasEnoughBalance={hasEnoughBalance}
           isLoggedIn={isLoggedIn}
+          myJoinedSlot={myJoinedSlot}
         />
       ) : (
         <LeaderboardTab tournamentId={tournament.id} />
+      )}
+
+      {/* ── Room Details Modal ───────────────────────────────────────────── */}
+      {showRoomDetails && (
+        <dialog
+          open
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-end justify-center w-full h-full max-w-none max-h-none m-0 p-0 border-0 bg-transparent"
+          style={{ background: "oklch(0 0 0 / 0.75)" }}
+        >
+          {/* Backdrop tap target */}
+          <button
+            type="button"
+            aria-label="Close room details"
+            className="absolute inset-0 w-full h-full cursor-default"
+            onClick={() => setShowRoomDetails(false)}
+          />
+          <div
+            className="relative w-full max-w-md rounded-t-2xl p-6 flex flex-col gap-4 animate-slide-up-modal"
+            style={{
+              background:
+                "linear-gradient(135deg, oklch(0.13 0.025 220), oklch(0.10 0.015 240))",
+              border: "1px solid oklch(0.55 0.20 220 / 0.4)",
+              boxShadow: "0 -8px 40px oklch(0.55 0.20 220 / 0.3)",
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <h2
+                className="font-display font-black text-lg tracking-wider"
+                style={{ color: "oklch(0.65 0.22 220)" }}
+              >
+                ROOM DETAILS
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowRoomDetails(false)}
+                className="text-muted-foreground hover:text-foreground text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Show room details or "not available yet" */}
+            {roomDetails ? (
+              <>
+                <RoomDetailRow label="ROOM ID" value={roomDetails.roomId} />
+                <RoomDetailRow
+                  label="PASSWORD"
+                  value={roomDetails.roomPassword}
+                />
+              </>
+            ) : (
+              <div
+                className="rounded-xl p-4 text-center"
+                style={{
+                  background: "oklch(0.14 0.02 240)",
+                  border: "1px solid oklch(0.25 0.02 240)",
+                }}
+              >
+                <Lock
+                  className="w-8 h-8 mx-auto mb-2"
+                  style={{ color: "oklch(0.65 0.22 220)" }}
+                />
+                <p className="text-sm font-body text-muted-foreground">
+                  Room details not available yet
+                </p>
+                <p className="text-xs font-body text-muted-foreground mt-1">
+                  Check back closer to match time
+                </p>
+              </div>
+            )}
+
+            <p className="text-xs text-center font-body text-muted-foreground">
+              Your slot:{" "}
+              <span className="font-bold text-foreground">
+                #{myJoinedSlot?.toString()}
+              </span>
+            </p>
+          </div>
+        </dialog>
       )}
     </div>
   );

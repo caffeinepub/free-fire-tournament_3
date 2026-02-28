@@ -1,32 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import {
-  useCreateCategory,
-  useCreateTournament,
-  usePostScores,
-  useAssignCallerUserRole,
-  useAddCoins,
-  useGetCategories,
-  useIsCallerAdmin,
-  useGetPaymentNumbers,
-  useSetPaymentNumbers,
-  useGetPendingDepositRequests,
-  useGetPendingWithdrawalRequests,
-  useApproveDepositRequest,
-  useRejectDepositRequest,
-  useApproveWithdrawalRequest,
-  useRejectWithdrawalRequest,
-  useGetAllUsers,
-  useGetResetCode,
-  useSetResetCode,
-  useAddCoinsByLegendId,
-  useRemoveCoinsByLegendId,
-  useGetUserByLegendId,
-} from "../hooks/useQueries";
-import { UserRole, Variant_easyPaisa_jazzCash } from "../backend.d";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -35,15 +8,64 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Plus, Shield, Swords, Users, Star, CreditCard, ArrowDownLeft, ArrowUpRight, Clock, Mail, Phone, Gamepad2, Hash, KeyRound } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { useNavigate } from "@tanstack/react-router";
+import {
+  ArrowDownLeft,
+  ArrowLeft,
+  ArrowUpRight,
+  Clock,
+  CreditCard,
+  Crown,
+  DoorOpen,
+  Gamepad2,
+  Hash,
+  KeyRound,
+  Mail,
+  Phone,
+  Plus,
+  Shield,
+  Star,
+  Swords,
+  Users,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { UserRole, Variant_easyPaisa_jazzCash } from "../backend.d";
 import { LCoinIcon } from "../components/game/LCoinIcon";
+import { useLocalAuth } from "../hooks/useLocalAuth";
+import {
+  useAddCoins,
+  useAddCoinsByLegendId,
+  useApproveDepositRequest,
+  useApproveWithdrawalRequest,
+  useAssignCallerUserRole,
+  useCreateCategory,
+  useCreateTournament,
+  useGetAllUsers,
+  useGetCallerUserProfile,
+  useGetCategories,
+  useGetPaymentNumbers,
+  useGetPendingDepositRequests,
+  useGetPendingWithdrawalRequests,
+  useGetResetCode,
+  useGetTournaments,
+  useGetUserByLegendId,
+  useIsCallerAdmin,
+  usePostScores,
+  useRejectDepositRequest,
+  useRejectWithdrawalRequest,
+  useRemoveCoinsByLegendId,
+  useSetPaymentNumbers,
+  useSetResetCode,
+  useSetTournamentRoomDetails,
+} from "../hooks/useQueries";
 
 // Wrapper so LCoinIcon can be passed as a React component type to SectionCard
 function LCoinSectionIcon({ className: _className }: { className?: string }) {
   return <LCoinIcon size={16} />;
 }
-import { toast } from "sonner";
 import { Principal } from "@icp-sdk/core/principal";
+import { toast } from "sonner";
 
 function SectionCard({
   title,
@@ -61,10 +83,15 @@ function SectionCard({
     >
       <div
         className="px-4 py-3 flex items-center gap-2"
-        style={{ background: "oklch(0.14 0.02 240)", borderBottom: "1px solid oklch(0.2 0.02 240)" }}
+        style={{
+          background: "oklch(0.14 0.02 240)",
+          borderBottom: "1px solid oklch(0.2 0.02 240)",
+        }}
       >
         <Icon className="w-4 h-4 neon-text-orange" />
-        <span className="font-display font-bold text-sm tracking-wider">{title}</span>
+        <span className="font-display font-bold text-sm tracking-wider">
+          {title}
+        </span>
       </div>
       <div className="p-4 flex flex-col gap-3">{children}</div>
     </div>
@@ -79,13 +106,20 @@ function truncatePrincipal(principal: Principal): string {
 
 export default function AdminPage() {
   const navigate = useNavigate();
+  const { currentUser } = useLocalAuth();
   const { data: isAdmin, isLoading: adminLoading } = useIsCallerAdmin();
   const { data: categories } = useGetCategories();
+  const { data: tournaments } = useGetTournaments();
   const { data: paymentNumbers } = useGetPaymentNumbers();
-  const { data: pendingDeposits, isLoading: depositLoading } = useGetPendingDepositRequests();
-  const { data: pendingWithdrawals, isLoading: withdrawalLoading } = useGetPendingWithdrawalRequests();
+  const { data: pendingDeposits, isLoading: depositLoading } =
+    useGetPendingDepositRequests();
+  const { data: pendingWithdrawals, isLoading: withdrawalLoading } =
+    useGetPendingWithdrawalRequests();
   const { data: allUsers, isLoading: usersLoading } = useGetAllUsers();
   const { data: currentResetCode } = useGetResetCode();
+  // Use caller profile as the primary source for admin self-coin management
+  // (more reliable than searching allUsers by email, especially on first load)
+  const { data: callerProfile } = useGetCallerUserProfile();
 
   const createCategoryMutation = useCreateCategory();
   const createTournamentMutation = useCreateTournament();
@@ -101,6 +135,7 @@ export default function AdminPage() {
   const addCoinsByLegendIdMutation = useAddCoinsByLegendId();
   const removeCoinsByLegendIdMutation = useRemoveCoinsByLegendId();
   const getUserByLegendIdMutation = useGetUserByLegendId();
+  const setRoomDetailsMutation = useSetTournamentRoomDetails();
 
   // Payment Numbers
   const [pJazzCash, setPJazzCash] = useState("");
@@ -133,18 +168,51 @@ export default function AdminPage() {
   const [cPrincipal, setCPrincipal] = useState("");
   const [cAmount, setCAmount] = useState("");
 
+  // Set Room Details
+  const [roomTournamentId, setRoomTournamentId] = useState("");
+  const [roomId, setRoomId] = useState("");
+  const [roomPassword, setRoomPassword] = useState("");
+
   // Manage by Legend ID
   const [legendIdInput, setLegendIdInput] = useState("");
-  const [legendIdSearchResult, setLegendIdSearchResult] = useState<[import("@icp-sdk/core/principal").Principal, import("../backend.d").ExtendedUserProfile] | null>(null);
+  const [legendIdSearchResult, setLegendIdSearchResult] = useState<
+    | [
+        import("@icp-sdk/core/principal").Principal,
+        import("../backend.d").ExtendedUserProfile,
+      ]
+    | null
+  >(null);
   const [legendIdNotFound, setLegendIdNotFound] = useState(false);
   const [legendIdCoinAmount, setLegendIdCoinAmount] = useState("");
+
+  // Admin self coins
+  const [selfCoinAmount, setSelfCoinAmount] = useState("");
+
+  // Admin profile: prefer callerProfile (always up to date), fall back to allUsers lookup
+  const adminProfile = useMemo(() => {
+    // callerProfile is the most reliable source — use it first
+    if (callerProfile?.email) {
+      return callerProfile;
+    }
+    // Fall back to searching allUsers by email
+    if (!allUsers || !currentUser?.email) return null;
+    for (const [, profile] of allUsers) {
+      if (profile.email.toLowerCase() === currentUser.email.toLowerCase()) {
+        return profile;
+      }
+    }
+    return null;
+  }, [callerProfile, allUsers, currentUser?.email]);
 
   if (adminLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div
           className="w-8 h-8 border-2 rounded-full animate-spin"
-          style={{ borderColor: "oklch(0.72 0.22 45)", borderTopColor: "transparent" }}
+          style={{
+            borderColor: "oklch(0.72 0.22 45)",
+            borderTopColor: "transparent",
+          }}
         />
       </div>
     );
@@ -155,7 +223,11 @@ export default function AdminPage() {
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Shield className="w-12 h-12 text-muted-foreground/40" />
         <p className="text-muted-foreground font-body">Access denied</p>
-        <Button type="button" onClick={() => navigate({ to: "/" })} className="font-display">
+        <Button
+          type="button"
+          onClick={() => navigate({ to: "/" })}
+          className="font-display"
+        >
           Go Home
         </Button>
       </div>
@@ -163,7 +235,10 @@ export default function AdminPage() {
   }
 
   const handleCreateCategory = async () => {
-    if (!catName.trim()) { toast.error("Enter a category name"); return; }
+    if (!catName.trim()) {
+      toast.error("Enter a category name");
+      return;
+    }
     try {
       await createCategoryMutation.mutateAsync(catName.trim());
       toast.success("Category created!");
@@ -176,7 +251,9 @@ export default function AdminPage() {
   const handleQuickSetup = async () => {
     const defaultCategories = ["BR", "CS", "Lone Wolf"];
     const existingNames = (categories ?? []).map((c) => c.name.toLowerCase());
-    const toCreate = defaultCategories.filter((name) => !existingNames.includes(name.toLowerCase()));
+    const toCreate = defaultCategories.filter(
+      (name) => !existingNames.includes(name.toLowerCase()),
+    );
     if (toCreate.length === 0) {
       toast.info("BR, CS, and Lone Wolf already exist!");
       return;
@@ -193,7 +270,8 @@ export default function AdminPage() {
 
   const handleCreateTournament = async () => {
     if (!tTitle || !tCategoryId || !tEntryFee || !tPrizePool || !tTotalSlots) {
-      toast.error("Fill all required fields"); return;
+      toast.error("Fill all required fields");
+      return;
     }
     try {
       const prizeDistArr = tPrizeDist
@@ -213,31 +291,51 @@ export default function AdminPage() {
         imageUrl: tImageUrl,
       });
       toast.success("Tournament created!");
-      setTTitle(""); setTCategoryId(""); setTEntryFee(""); setTPrizePool("");
-      setTTotalSlots(""); setTRules(""); setTPrizeDist(""); setTImageUrl("");
+      setTTitle("");
+      setTCategoryId("");
+      setTEntryFee("");
+      setTPrizePool("");
+      setTTotalSlots("");
+      setTRules("");
+      setTPrizeDist("");
+      setTImageUrl("");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
   };
 
   const handlePostScores = async () => {
-    if (!sTournamentId || !sScores.trim()) { toast.error("Fill all fields"); return; }
+    if (!sTournamentId || !sScores.trim()) {
+      toast.error("Fill all fields");
+      return;
+    }
     try {
       const lines = sScores.trim().split("\n").filter(Boolean);
       const scores: Array<[Principal, bigint]> = lines.map((line) => {
         const [p, s] = line.split(",").map((x) => x.trim());
         return [Principal.fromText(p), BigInt(s)];
       });
-      await postScoresMutation.mutateAsync({ tournamentId: BigInt(sTournamentId), scores });
+      await postScoresMutation.mutateAsync({
+        tournamentId: BigInt(sTournamentId),
+        scores,
+      });
       toast.success("Scores posted!");
-      setSTournamentId(""); setSScores("");
+      setSTournamentId("");
+      setSScores("");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed — check format: principal,score per line");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed — check format: principal,score per line",
+      );
     }
   };
 
   const handleAssignRole = async () => {
-    if (!rPrincipal.trim()) { toast.error("Enter a principal"); return; }
+    if (!rPrincipal.trim()) {
+      toast.error("Enter a principal");
+      return;
+    }
     try {
       await assignRoleMutation.mutateAsync({
         user: Principal.fromText(rPrincipal.trim()),
@@ -251,23 +349,88 @@ export default function AdminPage() {
   };
 
   const handleAddCoins = async () => {
-    if (!cPrincipal.trim() || !cAmount) { toast.error("Fill all fields"); return; }
+    if (!cPrincipal.trim() || !cAmount) {
+      toast.error("Fill all fields");
+      return;
+    }
     try {
       await addCoinsMutation.mutateAsync({
         user: Principal.fromText(cPrincipal.trim()),
         amount: BigInt(cAmount),
       });
       toast.success(`Added ${cAmount} coins!`);
-      setCPrincipal(""); setCAmount("");
+      setCPrincipal("");
+      setCAmount("");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
   };
 
-  const handleLookupByLegendId = async () => {
-    if (!legendIdInput.trim()) { toast.error("Enter a Legend ID"); return; }
+  const handleAddCoinsToSelf = async () => {
+    if (!selfCoinAmount) {
+      toast.error("Pehle amount enter karein");
+      return;
+    }
+    if (!adminProfile) {
+      toast.error("Profile load ho rahi hai, thodi der mein try karein");
+      return;
+    }
+    const amount = Number(selfCoinAmount);
+    if (!amount || amount <= 0) {
+      toast.error("Valid amount enter karein (e.g. 500)");
+      return;
+    }
     try {
-      const result = await getUserByLegendIdMutation.mutateAsync(BigInt(legendIdInput.trim()));
+      await addCoinsByLegendIdMutation.mutateAsync({
+        legendId: adminProfile.legendId,
+        amount: BigInt(selfCoinAmount),
+      });
+      toast.success(`${selfCoinAmount} coins aap ke account mein add ho gaye!`);
+      setSelfCoinAmount("");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add coins");
+    }
+  };
+
+  const handleRemoveCoinsFromSelf = async () => {
+    if (!selfCoinAmount) {
+      toast.error("Pehle amount enter karein");
+      return;
+    }
+    if (!adminProfile) {
+      toast.error("Profile load ho rahi hai, thodi der mein try karein");
+      return;
+    }
+    const amount = Number(selfCoinAmount);
+    if (!amount || amount <= 0) {
+      toast.error("Valid amount enter karein (e.g. 500)");
+      return;
+    }
+    try {
+      await removeCoinsByLegendIdMutation.mutateAsync({
+        legendId: adminProfile.legendId,
+        amount: BigInt(selfCoinAmount),
+      });
+      toast.success(
+        `${selfCoinAmount} coins aap ke account se remove ho gaye!`,
+      );
+      setSelfCoinAmount("");
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to remove coins",
+      );
+    }
+  };
+
+  const handleLookupByLegendId = async () => {
+    if (!legendIdInput.trim()) {
+      toast.error("Enter a Legend ID");
+      return;
+    }
+    try {
+      const result = await getUserByLegendIdMutation.mutateAsync(
+        BigInt(legendIdInput.trim()),
+      );
       if (result) {
         setLegendIdSearchResult(result);
         setLegendIdNotFound(false);
@@ -281,16 +444,23 @@ export default function AdminPage() {
   };
 
   const handleAddCoinsByLegendId = async () => {
-    if (!legendIdInput.trim() || !legendIdCoinAmount) { toast.error("Enter Legend ID and amount"); return; }
+    if (!legendIdInput.trim() || !legendIdCoinAmount) {
+      toast.error("Enter Legend ID and amount");
+      return;
+    }
     try {
       await addCoinsByLegendIdMutation.mutateAsync({
         legendId: BigInt(legendIdInput.trim()),
         amount: BigInt(legendIdCoinAmount),
       });
-      toast.success(`Added ${legendIdCoinAmount} coins to #${legendIdInput.padStart(4, '0')}!`);
+      toast.success(
+        `Added ${legendIdCoinAmount} coins to #${legendIdInput.padStart(4, "0")}!`,
+      );
       setLegendIdCoinAmount("");
       // Refresh the lookup result
-      const refreshed = await getUserByLegendIdMutation.mutateAsync(BigInt(legendIdInput.trim()));
+      const refreshed = await getUserByLegendIdMutation.mutateAsync(
+        BigInt(legendIdInput.trim()),
+      );
       if (refreshed) setLegendIdSearchResult(refreshed);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to add coins");
@@ -298,24 +468,36 @@ export default function AdminPage() {
   };
 
   const handleRemoveCoinsByLegendId = async () => {
-    if (!legendIdInput.trim() || !legendIdCoinAmount) { toast.error("Enter Legend ID and amount"); return; }
+    if (!legendIdInput.trim() || !legendIdCoinAmount) {
+      toast.error("Enter Legend ID and amount");
+      return;
+    }
     try {
       await removeCoinsByLegendIdMutation.mutateAsync({
         legendId: BigInt(legendIdInput.trim()),
         amount: BigInt(legendIdCoinAmount),
       });
-      toast.success(`Removed ${legendIdCoinAmount} coins from #${legendIdInput.padStart(4, '0')}!`);
+      toast.success(
+        `Removed ${legendIdCoinAmount} coins from #${legendIdInput.padStart(4, "0")}!`,
+      );
       setLegendIdCoinAmount("");
       // Refresh the lookup result
-      const refreshed = await getUserByLegendIdMutation.mutateAsync(BigInt(legendIdInput.trim()));
+      const refreshed = await getUserByLegendIdMutation.mutateAsync(
+        BigInt(legendIdInput.trim()),
+      );
       if (refreshed) setLegendIdSearchResult(refreshed);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to remove coins");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to remove coins",
+      );
     }
   };
 
   const handleSetResetCode = async () => {
-    if (!newResetCode.trim()) { toast.error("Enter a reset code"); return; }
+    if (!newResetCode.trim()) {
+      toast.error("Enter a reset code");
+      return;
+    }
     try {
       await setResetCodeMutation.mutateAsync(newResetCode.trim());
       toast.success("Reset code saved!");
@@ -326,7 +508,10 @@ export default function AdminPage() {
   };
 
   const handleSetPaymentNumbers = async () => {
-    if (!pJazzCash.trim()) { toast.error("Enter JazzCash number"); return; }
+    if (!pJazzCash.trim()) {
+      toast.error("Enter JazzCash number");
+      return;
+    }
     try {
       await setPaymentNumbersMutation.mutateAsync({
         jazzCash: pJazzCash.trim(),
@@ -336,6 +521,29 @@ export default function AdminPage() {
       setPJazzCash("");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const handleSetRoomDetails = async () => {
+    if (!roomTournamentId.trim() || !roomId.trim() || !roomPassword.trim()) {
+      toast.error("Fill all fields -- Tournament, Room ID, and Password");
+      return;
+    }
+    try {
+      await setRoomDetailsMutation.mutateAsync({
+        tournamentId: BigInt(roomTournamentId),
+        roomId: roomId.trim(),
+        roomPassword: roomPassword.trim(),
+      });
+      toast.success(
+        "Room details saved! Players who joined can now VIEW DETAILS.",
+      );
+      setRoomId("");
+      setRoomPassword("");
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to save room details",
+      );
     }
   };
 
@@ -392,7 +600,10 @@ export default function AdminPage() {
           type="button"
           onClick={() => navigate({ to: "/profile" })}
           className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ background: "oklch(0.16 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
+          style={{
+            background: "oklch(0.16 0.02 240)",
+            border: "1px solid oklch(0.25 0.02 240)",
+          }}
         >
           <ArrowLeft className="w-4 h-4 text-foreground" />
         </button>
@@ -406,22 +617,158 @@ export default function AdminPage() {
 
       {/* Content */}
       <div className="flex flex-col gap-4 p-4">
+        {/* Admin Own Coins */}
+        <SectionCard title="MERI APNI COINS (ADMIN)" icon={Crown}>
+          {adminProfile ? (
+            <>
+              {/* Admin profile badge */}
+              <div
+                className="rounded-xl p-3 flex items-center gap-3"
+                style={{
+                  background:
+                    "linear-gradient(135deg, oklch(0.82 0.22 55 / 0.08), oklch(0.72 0.22 45 / 0.05))",
+                  border: "1px solid oklch(0.82 0.22 55 / 0.3)",
+                }}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, oklch(0.72 0.22 45 / 0.25), oklch(0.65 0.25 35 / 0.2))",
+                    border: "1px solid oklch(0.72 0.22 45 / 0.4)",
+                  }}
+                >
+                  <Crown
+                    className="w-5 h-5"
+                    style={{ color: "oklch(0.82 0.22 55)" }}
+                  />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span
+                    className="text-sm font-display font-bold"
+                    style={{ color: "oklch(0.9 0.01 240)" }}
+                  >
+                    {adminProfile.fullName ||
+                      adminProfile.inGameName ||
+                      "Admin"}
+                  </span>
+                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                    <span
+                      className="text-[11px] font-display font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: "oklch(0.72 0.22 220 / 0.12)",
+                        color: "oklch(0.72 0.22 220)",
+                        border: "1px solid oklch(0.72 0.22 220 / 0.35)",
+                      }}
+                    >
+                      #{adminProfile.legendId.toString().padStart(4, "0")}
+                    </span>
+                    <span
+                      className="text-[11px] font-display font-bold flex items-center gap-1"
+                      style={{ color: "oklch(0.82 0.18 85)" }}
+                    >
+                      <LCoinIcon size={12} />
+                      {adminProfile.balance.toString()} coins
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-[11px] font-body text-muted-foreground">
+                Seedha apne account mein coins add ya remove karein -- kisi aur
+                ki ID ki zaroorat nahi.
+              </p>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-display text-muted-foreground tracking-wider">
+                  AMOUNT
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 500"
+                  value={selfCoinAmount}
+                  onChange={(e) => setSelfCoinAmount(e.target.value)}
+                  style={inputStyle}
+                  className="h-10"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  onClick={handleAddCoinsToSelf}
+                  disabled={
+                    addCoinsByLegendIdMutation.isPending ||
+                    removeCoinsByLegendIdMutation.isPending
+                  }
+                  className="h-10 font-display font-bold text-xs tracking-wider"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+                    color: "oklch(0.08 0.01 240)",
+                    border: "none",
+                  }}
+                >
+                  {addCoinsByLegendIdMutation.isPending
+                    ? "Adding..."
+                    : "+ APNE COINS MEIN ADD"}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleRemoveCoinsFromSelf}
+                  disabled={
+                    addCoinsByLegendIdMutation.isPending ||
+                    removeCoinsByLegendIdMutation.isPending
+                  }
+                  className="h-10 font-display font-bold text-xs tracking-wider"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
+                    color: "oklch(0.95 0.005 80)",
+                    border: "none",
+                  }}
+                >
+                  {removeCoinsByLegendIdMutation.isPending
+                    ? "Removing..."
+                    : "- REMOVE COINS"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-6 gap-2">
+              <Crown className="w-8 h-8 text-muted-foreground/30" />
+              <p className="text-sm font-body text-muted-foreground text-center">
+                Pehle apna account register karein aur login karein -- phir
+                yahan aap ka profile dikh jaayega.
+              </p>
+            </div>
+          )}
+        </SectionCard>
 
         {/* Payment Numbers */}
         <SectionCard title="PAYMENT NUMBERS" icon={CreditCard}>
           {paymentNumbers?.jazzCash && (
             <div
               className="rounded-xl p-3 flex flex-col gap-1.5"
-              style={{ background: "oklch(0.72 0.22 45 / 0.08)", border: "1px solid oklch(0.72 0.22 45 / 0.2)" }}
+              style={{
+                background: "oklch(0.72 0.22 45 / 0.08)",
+                border: "1px solid oklch(0.72 0.22 45 / 0.2)",
+              }}
             >
-              <p className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">CURRENT NUMBER</p>
-              <p className="text-xs font-mono-game" style={{ color: "oklch(0.9 0.01 240)" }}>
-                <span style={{ color: "oklch(0.75 0.2 300)" }}>JazzCash:</span> {paymentNumbers.jazzCash}
+              <p className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">
+                CURRENT NUMBER
+              </p>
+              <p
+                className="text-xs font-mono-game"
+                style={{ color: "oklch(0.9 0.01 240)" }}
+              >
+                <span style={{ color: "oklch(0.75 0.2 300)" }}>JazzCash:</span>{" "}
+                {paymentNumbers.jazzCash}
               </p>
             </div>
           )}
           <div className="flex flex-col gap-1">
-            <Label className="text-xs font-display text-muted-foreground tracking-wider">JAZZCASH NUMBER</Label>
+            <Label className="text-xs font-display text-muted-foreground tracking-wider">
+              JAZZCASH NUMBER
+            </Label>
             <Input
               placeholder={paymentNumbers?.jazzCash || "e.g. 03242646964"}
               value={pJazzCash}
@@ -436,12 +783,84 @@ export default function AdminPage() {
             disabled={setPaymentNumbersMutation.isPending}
             className="font-display font-bold tracking-wider h-10"
             style={{
-              background: "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+              background:
+                "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
               color: "oklch(0.08 0.01 240)",
               border: "none",
             }}
           >
-            {setPaymentNumbersMutation.isPending ? "Saving..." : "SAVE JAZZCASH NUMBER"}
+            {setPaymentNumbersMutation.isPending
+              ? "Saving..."
+              : "SAVE JAZZCASH NUMBER"}
+          </Button>
+        </SectionCard>
+
+        {/* Set Room Details */}
+        <SectionCard title="SET ROOM DETAILS" icon={DoorOpen}>
+          <p className="text-[11px] font-body text-muted-foreground">
+            After tournament starts, set Room ID and Password so joined players
+            can see it in "VIEW DETAILS".
+          </p>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs font-display text-muted-foreground tracking-wider">
+              TOURNAMENT
+            </Label>
+            <Select
+              value={roomTournamentId}
+              onValueChange={setRoomTournamentId}
+            >
+              <SelectTrigger className="h-10" style={inputStyle}>
+                <SelectValue placeholder="Select tournament" />
+              </SelectTrigger>
+              <SelectContent style={{ background: "oklch(0.16 0.02 240)" }}>
+                {(tournaments ?? []).map((t) => (
+                  <SelectItem key={t.id.toString()} value={t.id.toString()}>
+                    {t.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs font-display text-muted-foreground tracking-wider">
+              ROOM ID
+            </Label>
+            <Input
+              placeholder="e.g. FF12345678"
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value)}
+              style={inputStyle}
+              className="h-10 font-mono-game text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs font-display text-muted-foreground tracking-wider">
+              ROOM PASSWORD
+            </Label>
+            <Input
+              placeholder="e.g. 1234"
+              value={roomPassword}
+              onChange={(e) => setRoomPassword(e.target.value)}
+              style={inputStyle}
+              className="h-10 font-mono-game text-sm"
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={handleSetRoomDetails}
+            disabled={setRoomDetailsMutation.isPending}
+            className="font-display font-bold tracking-wider h-10"
+            style={{
+              background:
+                "linear-gradient(135deg, oklch(0.55 0.20 220), oklch(0.45 0.18 230))",
+              color: "#ffffff",
+              border: "1px solid oklch(0.65 0.22 220 / 0.5)",
+              boxShadow: "0 0 16px oklch(0.55 0.20 220 / 0.3)",
+            }}
+          >
+            {setRoomDetailsMutation.isPending
+              ? "Saving..."
+              : "SAVE ROOM DETAILS"}
           </Button>
         </SectionCard>
 
@@ -450,16 +869,29 @@ export default function AdminPage() {
           {currentResetCode && (
             <div
               className="rounded-xl p-3 flex flex-col gap-1.5"
-              style={{ background: "oklch(0.72 0.22 45 / 0.08)", border: "1px solid oklch(0.72 0.22 45 / 0.2)" }}
+              style={{
+                background: "oklch(0.72 0.22 45 / 0.08)",
+                border: "1px solid oklch(0.72 0.22 45 / 0.2)",
+              }}
             >
-              <p className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">CURRENT CODE</p>
-              <p className="font-mono-game text-sm" style={{ color: "oklch(0.9 0.01 240)" }}>
+              <p className="text-[10px] font-display font-bold text-muted-foreground tracking-wider">
+                CURRENT CODE
+              </p>
+              <p
+                className="font-mono-game text-sm"
+                style={{ color: "oklch(0.9 0.01 240)" }}
+              >
                 {currentResetCode}
               </p>
             </div>
           )}
           <div className="flex flex-col gap-1">
-            <label htmlFor="reset-code-input" className="text-xs font-display text-muted-foreground tracking-wider">NEW RESET CODE</label>
+            <label
+              htmlFor="reset-code-input"
+              className="text-xs font-display text-muted-foreground tracking-wider"
+            >
+              NEW RESET CODE
+            </label>
             <Input
               id="reset-code-input"
               placeholder="Enter a secret reset code..."
@@ -478,7 +910,8 @@ export default function AdminPage() {
             disabled={setResetCodeMutation.isPending}
             className="font-display font-bold tracking-wider h-10"
             style={{
-              background: "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+              background:
+                "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
               color: "oklch(0.08 0.01 240)",
               border: "none",
             }}
@@ -490,7 +923,9 @@ export default function AdminPage() {
         {/* Manage by Legend ID */}
         <SectionCard title="MANAGE BY LEGEND ID" icon={Hash}>
           <div className="flex flex-col gap-1">
-            <Label className="text-xs font-display text-muted-foreground tracking-wider">LEGEND ID</Label>
+            <Label className="text-xs font-display text-muted-foreground tracking-wider">
+              LEGEND ID
+            </Label>
             <div className="flex gap-2">
               <Input
                 type="number"
@@ -503,7 +938,9 @@ export default function AdminPage() {
                 }}
                 style={inputStyle}
                 className="h-10 font-mono-game text-sm flex-1"
-                onKeyDown={(e) => { if (e.key === "Enter") handleLookupByLegendId(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleLookupByLegendId();
+                }}
               />
               <Button
                 type="button"
@@ -511,7 +948,8 @@ export default function AdminPage() {
                 disabled={getUserByLegendIdMutation.isPending}
                 className="h-10 px-4 font-display font-bold text-xs tracking-wider shrink-0"
                 style={{
-                  background: "linear-gradient(135deg, oklch(0.72 0.22 220), oklch(0.6 0.2 220))",
+                  background:
+                    "linear-gradient(135deg, oklch(0.72 0.22 220), oklch(0.6 0.2 220))",
                   color: "oklch(0.95 0.005 80)",
                   border: "none",
                 }}
@@ -524,127 +962,198 @@ export default function AdminPage() {
           {legendIdNotFound && (
             <div
               className="rounded-xl p-3 flex items-center gap-2"
-              style={{ background: "oklch(0.65 0.25 25 / 0.08)", border: "1px solid oklch(0.65 0.25 25 / 0.25)" }}
+              style={{
+                background: "oklch(0.65 0.25 25 / 0.08)",
+                border: "1px solid oklch(0.65 0.25 25 / 0.25)",
+              }}
             >
-              <Hash className="w-4 h-4 shrink-0" style={{ color: "oklch(0.65 0.25 25)" }} />
-              <span className="text-sm font-display font-bold" style={{ color: "oklch(0.65 0.25 25)" }}>
+              <Hash
+                className="w-4 h-4 shrink-0"
+                style={{ color: "oklch(0.65 0.25 25)" }}
+              />
+              <span
+                className="text-sm font-display font-bold"
+                style={{ color: "oklch(0.65 0.25 25)" }}
+              >
                 Legend ID not found
               </span>
             </div>
           )}
 
-          {legendIdSearchResult && (() => {
-            const [, profile] = legendIdSearchResult;
-            return (
-              <div
-                className="rounded-xl overflow-hidden flex flex-col"
-                style={{ border: "1px solid oklch(0.72 0.22 220 / 0.35)" }}
-              >
-                {/* Legend ID badge header */}
+          {legendIdSearchResult &&
+            (() => {
+              const [, profile] = legendIdSearchResult;
+              return (
                 <div
-                  className="px-3 py-2 flex items-center gap-2"
-                  style={{ background: "oklch(0.72 0.22 220 / 0.1)", borderBottom: "1px solid oklch(0.72 0.22 220 / 0.2)" }}
+                  className="rounded-xl overflow-hidden flex flex-col"
+                  style={{ border: "1px solid oklch(0.72 0.22 220 / 0.35)" }}
                 >
-                  <Hash className="w-3.5 h-3.5 shrink-0" style={{ color: "oklch(0.72 0.22 220)" }} />
-                  <span
-                    className="font-display font-bold text-base tracking-widest"
-                    style={{ color: "oklch(0.82 0.22 55)", textShadow: "0 0 12px oklch(0.82 0.22 55 / 0.35)" }}
-                  >
-                    #{profile.legendId.toString().padStart(4, '0')}
-                  </span>
+                  {/* Legend ID badge header */}
                   <div
-                    className="ml-auto shrink-0 text-[10px] font-display font-bold px-2 py-0.5 rounded-full flex items-center gap-1"
+                    className="px-3 py-2 flex items-center gap-2"
                     style={{
-                      background: "oklch(0.82 0.18 85 / 0.12)",
-                      color: "oklch(0.82 0.18 85)",
-                      border: "1px solid oklch(0.82 0.18 85 / 0.3)",
+                      background: "oklch(0.72 0.22 220 / 0.1)",
+                      borderBottom: "1px solid oklch(0.72 0.22 220 / 0.2)",
                     }}
                   >
-                    <LCoinIcon size={11} />
-                    {profile.balance.toString()}
-                  </div>
-                </div>
-
-                {/* Profile details */}
-                <div className="px-3 py-2.5 flex flex-col gap-1.5">
-                  {profile.fullName && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">FULL NAME</span>
-                      <span className="text-xs font-body" style={{ color: "oklch(0.85 0.01 240)" }}>{profile.fullName}</span>
-                    </div>
-                  )}
-                  {profile.inGameName && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">IN-GAME</span>
-                      <span className="text-xs font-display font-bold" style={{ color: "oklch(0.72 0.22 45)" }}>{profile.inGameName}</span>
-                    </div>
-                  )}
-                  {profile.email && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">EMAIL</span>
-                      <span className="text-xs font-body truncate" style={{ color: "oklch(0.75 0.01 240)" }}>{profile.email}</span>
-                    </div>
-                  )}
-                  {profile.mobileNo && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">MOBILE</span>
-                      <span className="text-xs font-mono-game" style={{ color: "oklch(0.75 0.01 240)" }}>+92 {profile.mobileNo}</span>
-                    </div>
-                  )}
-                  {profile.gameUID && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">GAME UID</span>
-                      <span className="text-xs font-mono-game" style={{ color: "oklch(0.7 0.01 240)" }}>{profile.gameUID}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Coin actions */}
-                <div
-                  className="px-3 py-3 flex flex-col gap-2"
-                  style={{ borderTop: "1px solid oklch(0.72 0.22 220 / 0.2)", background: "oklch(0.11 0.015 240)" }}
-                >
-                  <Label className="text-xs font-display text-muted-foreground tracking-wider">COIN AMOUNT</Label>
-                  <Input
-                    type="number"
-                    placeholder="e.g. 500"
-                    value={legendIdCoinAmount}
-                    onChange={(e) => setLegendIdCoinAmount(e.target.value)}
-                    style={inputStyle}
-                    className="h-10"
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      onClick={handleAddCoinsByLegendId}
-                      disabled={addCoinsByLegendIdMutation.isPending || removeCoinsByLegendIdMutation.isPending}
-                      className="h-10 font-display font-bold text-xs tracking-wider"
+                    <Hash
+                      className="w-3.5 h-3.5 shrink-0"
+                      style={{ color: "oklch(0.72 0.22 220)" }}
+                    />
+                    <span
+                      className="font-display font-bold text-base tracking-widest"
                       style={{
-                        background: "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
-                        color: "oklch(0.08 0.01 240)",
-                        border: "none",
+                        color: "oklch(0.82 0.22 55)",
+                        textShadow: "0 0 12px oklch(0.82 0.22 55 / 0.35)",
                       }}
                     >
-                      {addCoinsByLegendIdMutation.isPending ? "Adding..." : "+ ADD COINS"}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={handleRemoveCoinsByLegendId}
-                      disabled={addCoinsByLegendIdMutation.isPending || removeCoinsByLegendIdMutation.isPending}
-                      className="h-10 font-display font-bold text-xs tracking-wider"
+                      #{profile.legendId.toString().padStart(4, "0")}
+                    </span>
+                    <div
+                      className="ml-auto shrink-0 text-[10px] font-display font-bold px-2 py-0.5 rounded-full flex items-center gap-1"
                       style={{
-                        background: "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
-                        color: "oklch(0.95 0.005 80)",
-                        border: "none",
+                        background: "oklch(0.82 0.18 85 / 0.12)",
+                        color: "oklch(0.82 0.18 85)",
+                        border: "1px solid oklch(0.82 0.18 85 / 0.3)",
                       }}
                     >
-                      {removeCoinsByLegendIdMutation.isPending ? "Removing..." : "- REMOVE COINS"}
-                    </Button>
+                      <LCoinIcon size={11} />
+                      {profile.balance.toString()}
+                    </div>
+                  </div>
+
+                  {/* Profile details */}
+                  <div className="px-3 py-2.5 flex flex-col gap-1.5">
+                    {profile.fullName && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">
+                          FULL NAME
+                        </span>
+                        <span
+                          className="text-xs font-body"
+                          style={{ color: "oklch(0.85 0.01 240)" }}
+                        >
+                          {profile.fullName}
+                        </span>
+                      </div>
+                    )}
+                    {profile.inGameName && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">
+                          IN-GAME
+                        </span>
+                        <span
+                          className="text-xs font-display font-bold"
+                          style={{ color: "oklch(0.72 0.22 45)" }}
+                        >
+                          {profile.inGameName}
+                        </span>
+                      </div>
+                    )}
+                    {profile.email && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">
+                          EMAIL
+                        </span>
+                        <span
+                          className="text-xs font-body truncate"
+                          style={{ color: "oklch(0.75 0.01 240)" }}
+                        >
+                          {profile.email}
+                        </span>
+                      </div>
+                    )}
+                    {profile.mobileNo && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">
+                          MOBILE
+                        </span>
+                        <span
+                          className="text-xs font-mono-game"
+                          style={{ color: "oklch(0.75 0.01 240)" }}
+                        >
+                          +92 {profile.mobileNo}
+                        </span>
+                      </div>
+                    )}
+                    {profile.gameUID && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-display font-bold text-muted-foreground tracking-wider w-20 shrink-0">
+                          GAME UID
+                        </span>
+                        <span
+                          className="text-xs font-mono-game"
+                          style={{ color: "oklch(0.7 0.01 240)" }}
+                        >
+                          {profile.gameUID}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Coin actions */}
+                  <div
+                    className="px-3 py-3 flex flex-col gap-2"
+                    style={{
+                      borderTop: "1px solid oklch(0.72 0.22 220 / 0.2)",
+                      background: "oklch(0.11 0.015 240)",
+                    }}
+                  >
+                    <Label className="text-xs font-display text-muted-foreground tracking-wider">
+                      COIN AMOUNT
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 500"
+                      value={legendIdCoinAmount}
+                      onChange={(e) => setLegendIdCoinAmount(e.target.value)}
+                      style={inputStyle}
+                      className="h-10"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        onClick={handleAddCoinsByLegendId}
+                        disabled={
+                          addCoinsByLegendIdMutation.isPending ||
+                          removeCoinsByLegendIdMutation.isPending
+                        }
+                        className="h-10 font-display font-bold text-xs tracking-wider"
+                        style={{
+                          background:
+                            "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+                          color: "oklch(0.08 0.01 240)",
+                          border: "none",
+                        }}
+                      >
+                        {addCoinsByLegendIdMutation.isPending
+                          ? "Adding..."
+                          : "+ ADD COINS"}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleRemoveCoinsByLegendId}
+                        disabled={
+                          addCoinsByLegendIdMutation.isPending ||
+                          removeCoinsByLegendIdMutation.isPending
+                        }
+                        className="h-10 font-display font-bold text-xs tracking-wider"
+                        style={{
+                          background:
+                            "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
+                          color: "oklch(0.95 0.005 80)",
+                          border: "none",
+                        }}
+                      >
+                        {removeCoinsByLegendIdMutation.isPending
+                          ? "Removing..."
+                          : "- REMOVE COINS"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
         </SectionCard>
 
         {/* Pending Deposit Requests */}
@@ -653,23 +1162,32 @@ export default function AdminPage() {
             <div className="flex items-center justify-center py-6">
               <div
                 className="w-6 h-6 border-2 rounded-full animate-spin"
-                style={{ borderColor: "oklch(0.72 0.22 145)", borderTopColor: "transparent" }}
+                style={{
+                  borderColor: "oklch(0.72 0.22 145)",
+                  borderTopColor: "transparent",
+                }}
               />
             </div>
           ) : !pendingDeposits || pendingDeposits.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 gap-2">
               <ArrowDownLeft className="w-8 h-8 text-muted-foreground/30" />
-              <p className="text-sm font-body text-muted-foreground">No pending requests</p>
+              <p className="text-sm font-body text-muted-foreground">
+                No pending requests
+              </p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
               {pendingDeposits.map((req) => {
-                const isJazz = req.paymentMethod === Variant_easyPaisa_jazzCash.jazzCash;
+                const isJazz =
+                  req.paymentMethod === Variant_easyPaisa_jazzCash.jazzCash;
                 return (
                   <div
                     key={req.id.toString()}
                     className="rounded-xl p-3 flex flex-col gap-2"
-                    style={{ background: "oklch(0.14 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
+                    style={{
+                      background: "oklch(0.14 0.02 240)",
+                      border: "1px solid oklch(0.25 0.02 240)",
+                    }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-col gap-1 min-w-0">
@@ -678,15 +1196,24 @@ export default function AdminPage() {
                         </span>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-display font-bold text-sm neon-text-gold flex items-center gap-1">
-                            <LCoinIcon size={13} />
-                            +{req.amount.toString()}
+                            <LCoinIcon size={13} />+{req.amount.toString()}
                           </span>
                           <span
                             className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-display font-bold tracking-wider"
                             style={
                               isJazz
-                                ? { background: "oklch(0.6 0.2 300 / 0.15)", color: "oklch(0.75 0.2 300)", border: "1px solid oklch(0.6 0.2 300 / 0.3)" }
-                                : { background: "oklch(0.72 0.22 145 / 0.15)", color: "oklch(0.75 0.22 145)", border: "1px solid oklch(0.72 0.22 145 / 0.3)" }
+                                ? {
+                                    background: "oklch(0.6 0.2 300 / 0.15)",
+                                    color: "oklch(0.75 0.2 300)",
+                                    border:
+                                      "1px solid oklch(0.6 0.2 300 / 0.3)",
+                                  }
+                                : {
+                                    background: "oklch(0.72 0.22 145 / 0.15)",
+                                    color: "oklch(0.75 0.22 145)",
+                                    border:
+                                      "1px solid oklch(0.72 0.22 145 / 0.3)",
+                                  }
                             }
                           >
                             {isJazz ? "JAZZCASH" : "EASYPAISA"}
@@ -696,7 +1223,9 @@ export default function AdminPage() {
                           TID: {req.transactionReference}
                         </span>
                         <span className="text-[10px] font-mono-game text-muted-foreground">
-                          {new Date(Number(req.timestamp / 1_000_000n)).toLocaleString()}
+                          {new Date(
+                            Number(req.timestamp / 1_000_000n),
+                          ).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -707,7 +1236,8 @@ export default function AdminPage() {
                         disabled={approveDepositMutation.isPending}
                         className="h-9 font-display font-bold text-xs tracking-wider"
                         style={{
-                          background: "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+                          background:
+                            "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
                           color: "oklch(0.08 0.01 240)",
                           border: "none",
                         }}
@@ -720,7 +1250,8 @@ export default function AdminPage() {
                         disabled={rejectDepositMutation.isPending}
                         className="h-9 font-display font-bold text-xs tracking-wider"
                         style={{
-                          background: "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
+                          background:
+                            "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
                           color: "oklch(0.95 0.005 80)",
                           border: "none",
                         }}
@@ -741,13 +1272,18 @@ export default function AdminPage() {
             <div className="flex items-center justify-center py-6">
               <div
                 className="w-6 h-6 border-2 rounded-full animate-spin"
-                style={{ borderColor: "oklch(0.65 0.25 25)", borderTopColor: "transparent" }}
+                style={{
+                  borderColor: "oklch(0.65 0.25 25)",
+                  borderTopColor: "transparent",
+                }}
               />
             </div>
           ) : !pendingWithdrawals || pendingWithdrawals.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 gap-2">
               <ArrowUpRight className="w-8 h-8 text-muted-foreground/30" />
-              <p className="text-sm font-body text-muted-foreground">No pending requests</p>
+              <p className="text-sm font-body text-muted-foreground">
+                No pending requests
+              </p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -755,20 +1291,27 @@ export default function AdminPage() {
                 <div
                   key={req.id.toString()}
                   className="rounded-xl p-3 flex flex-col gap-2"
-                  style={{ background: "oklch(0.14 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
+                  style={{
+                    background: "oklch(0.14 0.02 240)",
+                    border: "1px solid oklch(0.25 0.02 240)",
+                  }}
                 >
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-mono-game text-muted-foreground">
                       {truncatePrincipal(req.user)}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="font-display font-bold text-sm flex items-center gap-1" style={{ color: "oklch(0.72 0.25 25)" }}>
-                        <LCoinIcon size={13} />
-                        -{req.amount.toString()}
+                      <span
+                        className="font-display font-bold text-sm flex items-center gap-1"
+                        style={{ color: "oklch(0.72 0.25 25)" }}
+                      >
+                        <LCoinIcon size={13} />-{req.amount.toString()}
                       </span>
                       <span className="flex items-center gap-1 text-[10px] font-mono-game text-muted-foreground">
                         <Clock className="w-2.5 h-2.5" />
-                        {new Date(Number(req.timestamp / 1_000_000n)).toLocaleString()}
+                        {new Date(
+                          Number(req.timestamp / 1_000_000n),
+                        ).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -779,7 +1322,8 @@ export default function AdminPage() {
                       disabled={approveWithdrawalMutation.isPending}
                       className="h-9 font-display font-bold text-xs tracking-wider"
                       style={{
-                        background: "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+                        background:
+                          "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
                         color: "oklch(0.08 0.01 240)",
                         border: "none",
                       }}
@@ -792,7 +1336,8 @@ export default function AdminPage() {
                       disabled={rejectWithdrawalMutation.isPending}
                       className="h-9 font-display font-bold text-xs tracking-wider"
                       style={{
-                        background: "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
+                        background:
+                          "linear-gradient(135deg, oklch(0.65 0.25 25), oklch(0.55 0.22 25))",
                         color: "oklch(0.95 0.005 80)",
                         border: "none",
                       }}
@@ -811,9 +1356,15 @@ export default function AdminPage() {
           {/* Quick Setup */}
           <div
             className="rounded-xl p-3 flex flex-col gap-2"
-            style={{ background: "oklch(0.72 0.22 145 / 0.06)", border: "1px solid oklch(0.72 0.22 145 / 0.2)" }}
+            style={{
+              background: "oklch(0.72 0.22 145 / 0.06)",
+              border: "1px solid oklch(0.72 0.22 145 / 0.2)",
+            }}
           >
-            <p className="text-xs font-display font-bold tracking-wider" style={{ color: "oklch(0.75 0.22 145)" }}>
+            <p
+              className="text-xs font-display font-bold tracking-wider"
+              style={{ color: "oklch(0.75 0.22 145)" }}
+            >
               QUICK SETUP
             </p>
             <p className="text-[11px] font-body text-muted-foreground">
@@ -821,15 +1372,25 @@ export default function AdminPage() {
             </p>
             <div className="flex gap-2 flex-wrap">
               {["BR", "CS", "Lone Wolf"].map((name) => {
-                const exists = (categories ?? []).some((c) => c.name.toLowerCase() === name.toLowerCase());
+                const exists = (categories ?? []).some(
+                  (c) => c.name.toLowerCase() === name.toLowerCase(),
+                );
                 return (
                   <span
                     key={name}
                     className="px-2 py-1 rounded text-[10px] font-display font-bold tracking-wider"
                     style={
                       exists
-                        ? { background: "oklch(0.72 0.22 145 / 0.15)", color: "oklch(0.75 0.22 145)", border: "1px solid oklch(0.72 0.22 145 / 0.3)" }
-                        : { background: "oklch(0.65 0.25 25 / 0.15)", color: "oklch(0.72 0.25 25)", border: "1px solid oklch(0.65 0.25 25 / 0.3)" }
+                        ? {
+                            background: "oklch(0.72 0.22 145 / 0.15)",
+                            color: "oklch(0.75 0.22 145)",
+                            border: "1px solid oklch(0.72 0.22 145 / 0.3)",
+                          }
+                        : {
+                            background: "oklch(0.65 0.25 25 / 0.15)",
+                            color: "oklch(0.72 0.25 25)",
+                            border: "1px solid oklch(0.65 0.25 25 / 0.3)",
+                          }
                     }
                   >
                     {exists ? `✓ ${name}` : name}
@@ -843,19 +1404,30 @@ export default function AdminPage() {
               disabled={createCategoryMutation.isPending}
               className="h-9 font-display font-bold text-xs tracking-wider w-full"
               style={{
-                background: "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
+                background:
+                  "linear-gradient(135deg, oklch(0.72 0.22 145), oklch(0.6 0.2 145))",
                 color: "oklch(0.08 0.01 240)",
                 border: "none",
               }}
             >
-              {createCategoryMutation.isPending ? "Adding..." : "ADD BR + CS + LONE WOLF"}
+              {createCategoryMutation.isPending
+                ? "Adding..."
+                : "ADD BR + CS + LONE WOLF"}
             </Button>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-px" style={{ background: "oklch(0.25 0.02 240)" }} />
-            <span className="text-[10px] font-display text-muted-foreground tracking-wider">OR ADD CUSTOM</span>
-            <div className="flex-1 h-px" style={{ background: "oklch(0.25 0.02 240)" }} />
+            <div
+              className="flex-1 h-px"
+              style={{ background: "oklch(0.25 0.02 240)" }}
+            />
+            <span className="text-[10px] font-display text-muted-foreground tracking-wider">
+              OR ADD CUSTOM
+            </span>
+            <div
+              className="flex-1 h-px"
+              style={{ background: "oklch(0.25 0.02 240)" }}
+            />
           </div>
 
           <div className="flex flex-col gap-1">
@@ -876,25 +1448,53 @@ export default function AdminPage() {
             disabled={createCategoryMutation.isPending}
             className="font-display font-bold tracking-wider h-10"
             style={{
-              background: "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+              background:
+                "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
               color: "oklch(0.08 0.01 240)",
               border: "none",
             }}
           >
-            {createCategoryMutation.isPending ? "Creating..." : "CREATE CATEGORY"}
+            {createCategoryMutation.isPending
+              ? "Creating..."
+              : "CREATE CATEGORY"}
           </Button>
         </SectionCard>
 
         {/* Create Tournament */}
         <SectionCard title="CREATE TOURNAMENT" icon={Swords}>
           {[
-            { label: "TITLE", value: tTitle, set: setTTitle, placeholder: "Tournament name" },
-            { label: "ENTRY FEE", value: tEntryFee, set: setTEntryFee, placeholder: "e.g. 50", type: "number" },
-            { label: "PRIZE POOL", value: tPrizePool, set: setTPrizePool, placeholder: "e.g. 1000", type: "number" },
-            { label: "TOTAL SLOTS", value: tTotalSlots, set: setTTotalSlots, placeholder: "e.g. 48", type: "number" },
+            {
+              label: "TITLE",
+              value: tTitle,
+              set: setTTitle,
+              placeholder: "Tournament name",
+            },
+            {
+              label: "ENTRY FEE",
+              value: tEntryFee,
+              set: setTEntryFee,
+              placeholder: "e.g. 50",
+              type: "number",
+            },
+            {
+              label: "PRIZE POOL",
+              value: tPrizePool,
+              set: setTPrizePool,
+              placeholder: "e.g. 1000",
+              type: "number",
+            },
+            {
+              label: "TOTAL SLOTS",
+              value: tTotalSlots,
+              set: setTTotalSlots,
+              placeholder: "e.g. 48",
+              type: "number",
+            },
           ].map(({ label, value, set, placeholder, type }) => (
             <div key={label} className="flex flex-col gap-1">
-              <Label className="text-xs font-display text-muted-foreground tracking-wider">{label}</Label>
+              <Label className="text-xs font-display text-muted-foreground tracking-wider">
+                {label}
+              </Label>
               <Input
                 type={type ?? "text"}
                 placeholder={placeholder}
@@ -907,7 +1507,9 @@ export default function AdminPage() {
           ))}
 
           <div className="flex flex-col gap-1">
-            <Label className="text-xs font-display text-muted-foreground tracking-wider">CATEGORY</Label>
+            <Label className="text-xs font-display text-muted-foreground tracking-wider">
+              CATEGORY
+            </Label>
             <Select value={tCategoryId} onValueChange={setTCategoryId}>
               <SelectTrigger className="h-10" style={inputStyle}>
                 <SelectValue placeholder="Select category" />
@@ -946,7 +1548,9 @@ export default function AdminPage() {
               style={inputStyle}
               className="h-10"
             />
-            <p className="text-[10px] text-muted-foreground font-body">Image shown on tournament card & detail page</p>
+            <p className="text-[10px] text-muted-foreground font-body">
+              Image shown on tournament card & detail page
+            </p>
           </div>
 
           <div className="flex flex-col gap-1">
@@ -960,7 +1564,9 @@ export default function AdminPage() {
               style={inputStyle}
               className="h-10"
             />
-            <p className="text-[10px] text-muted-foreground font-body">1st,2nd,3rd place prizes</p>
+            <p className="text-[10px] text-muted-foreground font-body">
+              1st,2nd,3rd place prizes
+            </p>
           </div>
 
           <Button
@@ -969,12 +1575,15 @@ export default function AdminPage() {
             disabled={createTournamentMutation.isPending}
             className="font-display font-bold tracking-wider h-10"
             style={{
-              background: "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+              background:
+                "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
               color: "oklch(0.08 0.01 240)",
               border: "none",
             }}
           >
-            {createTournamentMutation.isPending ? "Creating..." : "CREATE TOURNAMENT"}
+            {createTournamentMutation.isPending
+              ? "Creating..."
+              : "CREATE TOURNAMENT"}
           </Button>
         </SectionCard>
 
@@ -1011,7 +1620,8 @@ export default function AdminPage() {
             disabled={postScoresMutation.isPending}
             className="font-display font-bold tracking-wider h-10"
             style={{
-              background: "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+              background:
+                "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
               color: "oklch(0.08 0.01 240)",
               border: "none",
             }}
@@ -1035,8 +1645,13 @@ export default function AdminPage() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label className="text-xs font-display text-muted-foreground tracking-wider">ROLE</Label>
-            <Select value={rRole} onValueChange={(v) => setRRole(v as UserRole)}>
+            <Label className="text-xs font-display text-muted-foreground tracking-wider">
+              ROLE
+            </Label>
+            <Select
+              value={rRole}
+              onValueChange={(v) => setRRole(v as UserRole)}
+            >
               <SelectTrigger className="h-10" style={inputStyle}>
                 <SelectValue />
               </SelectTrigger>
@@ -1055,7 +1670,8 @@ export default function AdminPage() {
             disabled={assignRoleMutation.isPending}
             className="font-display font-bold tracking-wider h-10"
             style={{
-              background: "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+              background:
+                "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
               color: "oklch(0.08 0.01 240)",
               border: "none",
             }}
@@ -1097,7 +1713,8 @@ export default function AdminPage() {
             disabled={addCoinsMutation.isPending}
             className="font-display font-bold tracking-wider h-10"
             style={{
-              background: "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+              background:
+                "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
               color: "oklch(0.08 0.01 240)",
               border: "none",
             }}
@@ -1112,13 +1729,18 @@ export default function AdminPage() {
             <div className="flex items-center justify-center py-6">
               <div
                 className="w-6 h-6 border-2 rounded-full animate-spin"
-                style={{ borderColor: "oklch(0.72 0.22 45)", borderTopColor: "transparent" }}
+                style={{
+                  borderColor: "oklch(0.72 0.22 45)",
+                  borderTopColor: "transparent",
+                }}
               />
             </div>
           ) : !allUsers || allUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 gap-2">
               <Users className="w-8 h-8 text-muted-foreground/30" />
-              <p className="text-sm font-body text-muted-foreground">No registered users yet</p>
+              <p className="text-sm font-body text-muted-foreground">
+                No registered users yet
+              </p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
@@ -1132,19 +1754,25 @@ export default function AdminPage() {
                 <div
                   key={principal.toString()}
                   className="rounded-xl p-3 flex flex-col gap-2"
-                  style={{ background: "oklch(0.14 0.02 240)", border: "1px solid oklch(0.25 0.02 240)" }}
+                  style={{
+                    background: "oklch(0.14 0.02 240)",
+                    border: "1px solid oklch(0.25 0.02 240)",
+                  }}
                 >
                   {/* Header row */}
                   <div className="flex items-center gap-2">
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-bold text-sm shrink-0"
                       style={{
-                        background: "linear-gradient(135deg, oklch(0.72 0.22 45 / 0.2), oklch(0.65 0.25 35 / 0.2))",
+                        background:
+                          "linear-gradient(135deg, oklch(0.72 0.22 45 / 0.2), oklch(0.65 0.25 35 / 0.2))",
                         border: "1px solid oklch(0.72 0.22 45 / 0.3)",
                         color: "oklch(0.72 0.22 45)",
                       }}
                     >
-                      {(profile.fullName || profile.username || "?").charAt(0).toUpperCase()}
+                      {(profile.fullName || profile.username || "?")
+                        .charAt(0)
+                        .toUpperCase()}
                     </div>
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1160,7 +1788,7 @@ export default function AdminPage() {
                               border: "1px solid oklch(0.72 0.22 220 / 0.35)",
                             }}
                           >
-                            #{profile.legendId.toString().padStart(4, '0')}
+                            #{profile.legendId.toString().padStart(4, "0")}
                           </span>
                         )}
                       </div>
@@ -1182,17 +1810,32 @@ export default function AdminPage() {
                   </div>
 
                   {/* Detail grid */}
-                  <div className="grid grid-cols-1 gap-1 pt-1" style={{ borderTop: "1px solid oklch(0.2 0.02 240)" }}>
+                  <div
+                    className="grid grid-cols-1 gap-1 pt-1"
+                    style={{ borderTop: "1px solid oklch(0.2 0.02 240)" }}
+                  >
                     {profile.inGameName && (
                       <div className="flex items-center gap-2">
-                        <Gamepad2 className="w-3 h-3 shrink-0" style={{ color: "oklch(0.72 0.22 45)" }} />
-                        <span className="text-[11px] font-body" style={{ color: "oklch(0.75 0.01 240)" }}>
+                        <Gamepad2
+                          className="w-3 h-3 shrink-0"
+                          style={{ color: "oklch(0.72 0.22 45)" }}
+                        />
+                        <span
+                          className="text-[11px] font-body"
+                          style={{ color: "oklch(0.75 0.01 240)" }}
+                        >
                           {profile.inGameName}
                         </span>
                         {profile.gameUID && (
                           <>
-                            <Hash className="w-3 h-3 shrink-0 ml-2" style={{ color: "oklch(0.55 0.02 240)" }} />
-                            <span className="text-[11px] font-mono-game" style={{ color: "oklch(0.6 0.01 240)" }}>
+                            <Hash
+                              className="w-3 h-3 shrink-0 ml-2"
+                              style={{ color: "oklch(0.55 0.02 240)" }}
+                            />
+                            <span
+                              className="text-[11px] font-mono-game"
+                              style={{ color: "oklch(0.6 0.01 240)" }}
+                            >
                               {profile.gameUID}
                             </span>
                           </>
@@ -1201,16 +1844,28 @@ export default function AdminPage() {
                     )}
                     {profile.email && (
                       <div className="flex items-center gap-2">
-                        <Mail className="w-3 h-3 shrink-0" style={{ color: "oklch(0.55 0.02 240)" }} />
-                        <span className="text-[11px] font-body truncate" style={{ color: "oklch(0.65 0.01 240)" }}>
+                        <Mail
+                          className="w-3 h-3 shrink-0"
+                          style={{ color: "oklch(0.55 0.02 240)" }}
+                        />
+                        <span
+                          className="text-[11px] font-body truncate"
+                          style={{ color: "oklch(0.65 0.01 240)" }}
+                        >
                           {profile.email}
                         </span>
                       </div>
                     )}
                     {profile.mobileNo && (
                       <div className="flex items-center gap-2">
-                        <Phone className="w-3 h-3 shrink-0" style={{ color: "oklch(0.55 0.02 240)" }} />
-                        <span className="text-[11px] font-mono-game" style={{ color: "oklch(0.65 0.01 240)" }}>
+                        <Phone
+                          className="w-3 h-3 shrink-0"
+                          style={{ color: "oklch(0.55 0.02 240)" }}
+                        />
+                        <span
+                          className="text-[11px] font-mono-game"
+                          style={{ color: "oklch(0.65 0.01 240)" }}
+                        >
                           +92 {profile.mobileNo}
                         </span>
                       </div>
@@ -1225,7 +1880,12 @@ export default function AdminPage() {
 
       <p className="text-center text-xs text-muted-foreground font-body py-4">
         © 2026. Built with ❤️ using{" "}
-        <a href="https://caffeine.ai" target="_blank" rel="noopener noreferrer" className="neon-text-orange">
+        <a
+          href="https://caffeine.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="neon-text-orange"
+        >
           caffeine.ai
         </a>
       </p>

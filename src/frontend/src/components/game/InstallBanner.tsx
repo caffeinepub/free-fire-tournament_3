@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Flame, X, Download, Share } from "lucide-react";
+import { Download, Flame, Share, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 const DISMISSED_KEY = "ff_install_dismissed";
 
@@ -7,7 +7,8 @@ const DISMISSED_KEY = "ff_install_dismissed";
 function isIOS(): boolean {
   return (
     typeof navigator !== "undefined" &&
-    (navigator.userAgent.includes("iPhone") || navigator.userAgent.includes("iPad"))
+    (navigator.userAgent.includes("iPhone") ||
+      navigator.userAgent.includes("iPad"))
   );
 }
 

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Wallet, User, Trophy } from "lucide-react";
+import { Home, Trophy, User, Wallet } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/", icon: Home, label: "HOME" },
@@ -39,15 +39,21 @@ export default function BottomNav() {
               <Icon
                 className="w-5 h-5 transition-all duration-150"
                 style={{
-                  color: isActive ? "oklch(0.72 0.22 45)" : "oklch(0.45 0.02 240)",
-                  filter: isActive ? "drop-shadow(0 0 6px oklch(0.72 0.22 45 / 0.6))" : "none",
+                  color: isActive
+                    ? "oklch(0.72 0.22 45)"
+                    : "oklch(0.45 0.02 240)",
+                  filter: isActive
+                    ? "drop-shadow(0 0 6px oklch(0.72 0.22 45 / 0.6))"
+                    : "none",
                   transform: isActive ? "scale(1.1)" : "scale(1)",
                 }}
               />
               <span
                 className="text-[10px] font-display font-bold tracking-wider transition-all duration-150"
                 style={{
-                  color: isActive ? "oklch(0.72 0.22 45)" : "oklch(0.45 0.02 240)",
+                  color: isActive
+                    ? "oklch(0.72 0.22 45)"
+                    : "oklch(0.45 0.02 240)",
                 }}
               >
                 {label}

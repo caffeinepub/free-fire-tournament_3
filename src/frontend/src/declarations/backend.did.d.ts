@@ -100,6 +100,7 @@ export interface _SERVICE {
   'getAllUsers' : ActorMethod<[], Array<[Principal, ExtendedUserProfile]>>,
   'getAllWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
   'getCallerDepositRequests' : ActorMethod<[], Array<DepositRequest>>,
+  'getCallerJoinedSlot' : ActorMethod<[bigint], [] | [bigint]>,
   'getCallerUserProfile' : ActorMethod<[], [] | [ExtendedUserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCallerWithdrawalRequests' : ActorMethod<[], Array<WithdrawalRequest>>,
@@ -112,6 +113,10 @@ export interface _SERVICE {
   'getResetCode' : ActorMethod<[], string>,
   'getTakenSlots' : ActorMethod<[bigint], Array<bigint>>,
   'getTournament' : ActorMethod<[bigint], [] | [Tournament]>,
+  'getTournamentRoomDetails' : ActorMethod<
+    [bigint],
+    [] | [{ 'roomPassword' : string, 'roomId' : string }]
+  >,
   'getTournaments' : ActorMethod<[], Array<Tournament>>,
   'getTransactionHistory' : ActorMethod<[], Array<Transaction>>,
   'getUserByLegendId' : ActorMethod<
@@ -147,6 +152,7 @@ export interface _SERVICE {
   'saveCallerUserProfile' : ActorMethod<[ExtendedUserProfile], undefined>,
   'setPaymentNumbers' : ActorMethod<[string, string], undefined>,
   'setResetCode' : ActorMethod<[string], undefined>,
+  'setTournamentRoomDetails' : ActorMethod<[bigint, string, string], undefined>,
   'setUsername' : ActorMethod<[string], undefined>,
   'submitDepositRequest' : ActorMethod<
     [bigint, { 'easyPaisa' : null } | { 'jazzCash' : null }, string],
