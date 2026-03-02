@@ -89,18 +89,6 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface Transaction {
-    id: bigint;
-    user: Principal;
-    txnType: Variant_deposit_withdrawal_tournamentEntry;
-    timestamp: Time;
-    amount: bigint;
-}
-export interface LeaderboardEntry {
-    player: Principal;
-    score: bigint;
-    tournamentId: bigint;
-}
 export interface ExtendedUserProfile {
     inGameName: string;
     username: string;
@@ -111,55 +99,6 @@ export interface ExtendedUserProfile {
     fullName: string;
     email: string;
     gameUID: string;
-}
-export type Time = bigint;
-export interface GlobalLeaderboardEntry {
-    username: string;
-    player: Principal;
-    totalWinnings: bigint;
-    totalScore: bigint;
-}
-export interface Tournament {
-    id: bigint;
-    categoryId: bigint;
-    status: TournamentStatus;
-    prizeDistribution: Array<bigint>;
-    title: string;
-    imageUrl: string;
-    totalSlots: bigint;
-    entryFee: bigint;
-    slotsFilled: bigint;
-    rules: string;
-    prizePool: bigint;
-}
-export interface DepositRequest {
-    id: bigint;
-    status: Variant_pending_approved_rejected;
-    paymentMethod: Variant_easyPaisa_jazzCash;
-    transactionReference: string;
-    user: Principal;
-    timestamp: Time;
-    amount: bigint;
-}
-export interface WithdrawalRequest {
-    id: bigint;
-    status: Variant_pending_approved_rejected;
-    user: Principal;
-    timestamp: Time;
-    amount: bigint;
-}
-export interface PaymentNumbers {
-    easyPaisa: string;
-    jazzCash: string;
-}
-export interface Category {
-    id: bigint;
-    name: string;
-}
-export enum TournamentStatus {
-    active = "active",
-    upcoming = "upcoming",
-    completed = "completed"
 }
 export enum UserRole {
     admin = "admin",
@@ -179,6 +118,67 @@ export enum Variant_pending_approved_rejected {
     pending = "pending",
     approved = "approved",
     rejected = "rejected"
+}
+export type Time = bigint;
+export interface Transaction {
+    id: bigint;
+    user: Principal;
+    txnType: Variant_deposit_withdrawal_tournamentEntry;
+    timestamp: Time;
+    amount: bigint;
+}
+export interface LeaderboardEntry {
+    player: Principal;
+    score: bigint;
+    tournamentId: bigint;
+}
+export enum TournamentStatus {
+    active = "active",
+    upcoming = "upcoming",
+    completed = "completed"
+}
+export interface Tournament {
+    id: bigint;
+    categoryId: bigint;
+    status: TournamentStatus;
+    prizeDistribution: Array<bigint>;
+    title: string;
+    imageUrl: string;
+    totalSlots: bigint;
+    entryFee: bigint;
+    slotsFilled: bigint;
+    rules: string;
+    prizePool: bigint;
+}
+export interface Category {
+    id: bigint;
+    name: string;
+}
+export interface DepositRequest {
+    id: bigint;
+    status: Variant_pending_approved_rejected;
+    paymentMethod: Variant_easyPaisa_jazzCash;
+    transactionReference: string;
+    user: Principal;
+    timestamp: Time;
+    amount: bigint;
+}
+export interface WithdrawalRequest {
+    id: bigint;
+    status: Variant_pending_approved_rejected;
+    user: Principal;
+    timestamp: Time;
+    amount: bigint;
+}
+export interface GlobalLeaderboardEntry {
+    username: string;
+    player: Principal;
+    totalWinnings: bigint;
+    totalScore: bigint;
+}
+export interface PaymentNumbers {
+    easyPaisa: string;
+    jazzCash: string;
 }
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
@@ -206,42 +206,23 @@ export interface backendInterface {
     getResetCode(): Promise<string>;
     getTakenSlots(tournamentId: bigint): Promise<Array<bigint>>;
     getTournament(id: bigint): Promise<Tournament | null>;
-    getTournamentRoomDetails(tournamentId: bigint): Promise<{
-        roomPassword: string;
-        roomId: string;
-    } | null>;
+    getTournamentRoomDetails(tournamentId: bigint): Promise<{ roomPassword: string; roomId: string; } | null>;
     getTournaments(): Promise<Array<Tournament>>;
     getTransactionHistory(): Promise<Array<Transaction>>;
     getUserByLegendId(legendId: bigint): Promise<[Principal, ExtendedUserProfile] | null>;
     getUserProfile(user: Principal): Promise<ExtendedUserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     joinTournament(tournamentId: bigint, slotNumber: bigint): Promise<void>;
-    login(email: string, passwordHash: string): Promise<{
-        __kind__: "ok";
-        ok: ExtendedUserProfile;
-    } | {
-        __kind__: "err";
-        err: string;
-    }>;
+    login(email: string, passwordHash: string): Promise<{ __kind__: "ok"; ok: ExtendedUserProfile; } | { __kind__: "err"; err: string; }>;
+    loginByLegendId(legendId: bigint, passwordHash: string): Promise<{ __kind__: "ok"; ok: ExtendedUserProfile; } | { __kind__: "err"; err: string; }>;
     postScores(tournamentId: bigint, scores: Array<[Principal, bigint]>): Promise<void>;
-    registerAccount(email: string, passwordHash: string, fullName: string, inGameName: string, gameUID: string, mobileNo: string, referCode: string): Promise<{
-        __kind__: "ok";
-        ok: null;
-    } | {
-        __kind__: "err";
-        err: string;
-    }>;
+    registerAccount(email: string, passwordHash: string, fullName: string, inGameName: string, gameUID: string, mobileNo: string, referCode: string): Promise<{ __kind__: "ok"; ok: null; } | { __kind__: "err"; err: string; }>;
     registerUser(fullName: string, inGameName: string, gameUID: string, mobileNo: string, email: string, referCode: string): Promise<void>;
     rejectDepositRequest(requestId: bigint): Promise<void>;
     rejectWithdrawalRequest(requestId: bigint): Promise<void>;
     removeCoinsByLegendId(legendId: bigint, amount: bigint): Promise<void>;
-    resetPassword(email: string, resetCode: string, newPasswordHash: string): Promise<{
-        __kind__: "ok";
-        ok: null;
-    } | {
-        __kind__: "err";
-        err: string;
-    }>;
+    resetPassword(email: string, resetCode: string, newPasswordHash: string): Promise<{ __kind__: "ok"; ok: null; } | { __kind__: "err"; err: string; }>;
+    resetPasswordByLegendId(legendId: bigint, resetCode: string, newPasswordHash: string): Promise<{ __kind__: "ok"; ok: null; } | { __kind__: "err"; err: string; }>;
     saveCallerUserProfile(profile: ExtendedUserProfile): Promise<void>;
     setPaymentNumbers(jazzCash: string, easyPaisa: string): Promise<void>;
     setResetCode(code: string): Promise<void>;
@@ -251,7 +232,7 @@ export interface backendInterface {
     submitWithdrawalRequest(amount: bigint): Promise<bigint>;
     updateUserInfo(fullName: string, inGameName: string, gameUID: string, mobileNo: string, email: string): Promise<void>;
 }
-import type { DepositRequest as _DepositRequest, ExtendedUserProfile as _ExtendedUserProfile, Time as _Time, Tournament as _Tournament, TournamentStatus as _TournamentStatus, Transaction as _Transaction, UserRole as _UserRole, WithdrawalRequest as _WithdrawalRequest } from "./declarations/backend.did.d.ts";
+import type { ExtendedUserProfile as _ExtendedUserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async _initializeAccessControlWithSecret(arg0: string): Promise<void> {
@@ -265,62 +246,6 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor._initializeAccessControlWithSecret(arg0);
-            return result;
-        }
-    }
-    async addCoins(arg0: Principal, arg1: bigint): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.addCoins(arg0, arg1);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.addCoins(arg0, arg1);
-            return result;
-        }
-    }
-    async addCoinsByLegendId(arg0: bigint, arg1: bigint): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.addCoinsByLegendId(arg0, arg1);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.addCoinsByLegendId(arg0, arg1);
-            return result;
-        }
-    }
-    async approveDepositRequest(arg0: bigint): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.approveDepositRequest(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.approveDepositRequest(arg0);
-            return result;
-        }
-    }
-    async approveWithdrawalRequest(arg0: bigint): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.approveWithdrawalRequest(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.approveWithdrawalRequest(arg0);
             return result;
         }
     }
@@ -338,343 +263,18 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async createCategory(arg0: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.createCategory(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.createCategory(arg0);
-            return result;
-        }
-    }
-    async createTournament(arg0: string, arg1: bigint, arg2: bigint, arg3: bigint, arg4: bigint, arg5: string, arg6: Array<bigint>, arg7: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.createTournament(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.createTournament(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
-            return result;
-        }
-    }
-    async getAllDepositRequests(): Promise<Array<DepositRequest>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getAllDepositRequests();
-                return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getAllDepositRequests();
-            return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getAllUsers(): Promise<Array<[Principal, ExtendedUserProfile]>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getAllUsers();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getAllUsers();
-            return result;
-        }
-    }
-    async getAllWithdrawalRequests(): Promise<Array<WithdrawalRequest>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getAllWithdrawalRequests();
-                return from_candid_vec_n8(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getAllWithdrawalRequests();
-            return from_candid_vec_n8(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getCallerDepositRequests(): Promise<Array<DepositRequest>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getCallerDepositRequests();
-                return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getCallerDepositRequests();
-            return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getCallerJoinedSlot(arg0: bigint): Promise<bigint | null> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getCallerJoinedSlot(arg0);
-                return from_candid_opt_n11(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getCallerJoinedSlot(arg0);
-            return from_candid_opt_n11(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getCallerUserProfile(): Promise<ExtendedUserProfile | null> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getCallerUserProfile();
-                return from_candid_opt_n12(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getCallerUserProfile();
-            return from_candid_opt_n12(this._uploadFile, this._downloadFile, result);
-        }
-    }
     async getCallerUserRole(): Promise<UserRole> {
         if (this.processError) {
             try {
                 const result = await this.actor.getCallerUserRole();
-                return from_candid_UserRole_n13(this._uploadFile, this._downloadFile, result);
+                return from_candid_UserRole_n3(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getCallerUserRole();
-            return from_candid_UserRole_n13(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getCallerWithdrawalRequests(): Promise<Array<WithdrawalRequest>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getCallerWithdrawalRequests();
-                return from_candid_vec_n8(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getCallerWithdrawalRequests();
-            return from_candid_vec_n8(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getCategories(): Promise<Array<Category>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getCategories();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getCategories();
-            return result;
-        }
-    }
-    async getGlobalLeaderboard(): Promise<Array<GlobalLeaderboardEntry>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getGlobalLeaderboard();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getGlobalLeaderboard();
-            return result;
-        }
-    }
-    async getLeaderboard(arg0: bigint): Promise<Array<LeaderboardEntry>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getLeaderboard(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getLeaderboard(arg0);
-            return result;
-        }
-    }
-    async getPaymentNumbers(): Promise<PaymentNumbers> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getPaymentNumbers();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getPaymentNumbers();
-            return result;
-        }
-    }
-    async getPendingDepositRequests(): Promise<Array<DepositRequest>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getPendingDepositRequests();
-                return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getPendingDepositRequests();
-            return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getPendingWithdrawalRequests(): Promise<Array<WithdrawalRequest>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getPendingWithdrawalRequests();
-                return from_candid_vec_n8(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getPendingWithdrawalRequests();
-            return from_candid_vec_n8(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getResetCode(): Promise<string> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getResetCode();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getResetCode();
-            return result;
-        }
-    }
-    async getTakenSlots(arg0: bigint): Promise<Array<bigint>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getTakenSlots(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getTakenSlots(arg0);
-            return result;
-        }
-    }
-    async getTournament(arg0: bigint): Promise<Tournament | null> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getTournament(arg0);
-                return from_candid_opt_n15(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getTournament(arg0);
-            return from_candid_opt_n15(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getTournamentRoomDetails(arg0: bigint): Promise<{
-        roomPassword: string;
-        roomId: string;
-    } | null> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getTournamentRoomDetails(arg0);
-                return from_candid_opt_n20(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getTournamentRoomDetails(arg0);
-            return from_candid_opt_n20(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getTournaments(): Promise<Array<Tournament>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getTournaments();
-                return from_candid_vec_n21(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getTournaments();
-            return from_candid_vec_n21(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getTransactionHistory(): Promise<Array<Transaction>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getTransactionHistory();
-                return from_candid_vec_n22(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getTransactionHistory();
-            return from_candid_vec_n22(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getUserByLegendId(arg0: bigint): Promise<[Principal, ExtendedUserProfile] | null> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getUserByLegendId(arg0);
-                return from_candid_opt_n26(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getUserByLegendId(arg0);
-            return from_candid_opt_n26(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getUserProfile(arg0: Principal): Promise<ExtendedUserProfile | null> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getUserProfile(arg0);
-                return from_candid_opt_n12(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getUserProfile(arg0);
-            return from_candid_opt_n12(this._uploadFile, this._downloadFile, result);
+            return from_candid_UserRole_n3(this._uploadFile, this._downloadFile, result);
         }
     }
     async isCallerAdmin(): Promise<boolean> {
@@ -691,21 +291,7 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async joinTournament(arg0: bigint, arg1: bigint): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.joinTournament(arg0, arg1);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.joinTournament(arg0, arg1);
-            return result;
-        }
-    }
-    async login(arg0: string, arg1: string): Promise<{
+    async loginByLegendId(arg0: bigint, arg1: string): Promise<{
         __kind__: "ok";
         ok: ExtendedUserProfile;
     } | {
@@ -714,32 +300,18 @@ export class Backend implements backendInterface {
     }> {
         if (this.processError) {
             try {
-                const result = await this.actor.login(arg0, arg1);
-                return from_candid_variant_n27(this._uploadFile, this._downloadFile, result);
+                const result = await this.actor.loginByLegendId(arg0, arg1);
+                return from_candid_variant_n5(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.login(arg0, arg1);
-            return from_candid_variant_n27(this._uploadFile, this._downloadFile, result);
+            const result = await this.actor.loginByLegendId(arg0, arg1);
+            return from_candid_variant_n5(this._uploadFile, this._downloadFile, result);
         }
     }
-    async postScores(arg0: bigint, arg1: Array<[Principal, bigint]>): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.postScores(arg0, arg1);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.postScores(arg0, arg1);
-            return result;
-        }
-    }
-    async registerAccount(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string): Promise<{
+    async resetPasswordByLegendId(arg0: bigint, arg1: string, arg2: string): Promise<{
         __kind__: "ok";
         ok: null;
     } | {
@@ -748,376 +320,66 @@ export class Backend implements backendInterface {
     }> {
         if (this.processError) {
             try {
-                const result = await this.actor.registerAccount(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
-                return from_candid_variant_n28(this._uploadFile, this._downloadFile, result);
+                const result = await this.actor.resetPasswordByLegendId(arg0, arg1, arg2);
+                return from_candid_variant_n6(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.registerAccount(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
-            return from_candid_variant_n28(this._uploadFile, this._downloadFile, result);
+            const result = await this.actor.resetPasswordByLegendId(arg0, arg1, arg2);
+            return from_candid_variant_n6(this._uploadFile, this._downloadFile, result);
         }
     }
-    async registerUser(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.registerUser(arg0, arg1, arg2, arg3, arg4, arg5);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.registerUser(arg0, arg1, arg2, arg3, arg4, arg5);
-            return result;
-        }
-    }
-    async rejectDepositRequest(arg0: bigint): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.rejectDepositRequest(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.rejectDepositRequest(arg0);
-            return result;
-        }
-    }
-    async rejectWithdrawalRequest(arg0: bigint): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.rejectWithdrawalRequest(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.rejectWithdrawalRequest(arg0);
-            return result;
-        }
-    }
-    async removeCoinsByLegendId(arg0: bigint, arg1: bigint): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.removeCoinsByLegendId(arg0, arg1);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.removeCoinsByLegendId(arg0, arg1);
-            return result;
-        }
-    }
-    async resetPassword(arg0: string, arg1: string, arg2: string): Promise<{
-        __kind__: "ok";
-        ok: null;
-    } | {
-        __kind__: "err";
-        err: string;
-    }> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.resetPassword(arg0, arg1, arg2);
-                return from_candid_variant_n28(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.resetPassword(arg0, arg1, arg2);
-            return from_candid_variant_n28(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async saveCallerUserProfile(arg0: ExtendedUserProfile): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.saveCallerUserProfile(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.saveCallerUserProfile(arg0);
-            return result;
-        }
-    }
-    async setPaymentNumbers(arg0: string, arg1: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.setPaymentNumbers(arg0, arg1);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.setPaymentNumbers(arg0, arg1);
-            return result;
-        }
-    }
-    async setResetCode(arg0: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.setResetCode(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.setResetCode(arg0);
-            return result;
-        }
-    }
-    async setTournamentRoomDetails(arg0: bigint, arg1: string, arg2: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.setTournamentRoomDetails(arg0, arg1, arg2);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.setTournamentRoomDetails(arg0, arg1, arg2);
-            return result;
-        }
-    }
-    async setUsername(arg0: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.setUsername(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.setUsername(arg0);
-            return result;
-        }
-    }
-    async submitDepositRequest(arg0: bigint, arg1: Variant_easyPaisa_jazzCash, arg2: string): Promise<bigint> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.submitDepositRequest(arg0, to_candid_variant_n29(this._uploadFile, this._downloadFile, arg1), arg2);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.submitDepositRequest(arg0, to_candid_variant_n29(this._uploadFile, this._downloadFile, arg1), arg2);
-            return result;
-        }
-    }
-    async submitWithdrawalRequest(arg0: bigint): Promise<bigint> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.submitWithdrawalRequest(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.submitWithdrawalRequest(arg0);
-            return result;
-        }
-    }
-    async updateUserInfo(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.updateUserInfo(arg0, arg1, arg2, arg3, arg4);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.updateUserInfo(arg0, arg1, arg2, arg3, arg4);
-            return result;
-        }
-    }
+    async addCoins(user, amount) { return this.actor.addCoins(user, amount); }
+    async addCoinsByLegendId(legendId, amount) { return this.actor.addCoinsByLegendId(legendId, amount); }
+    async approveDepositRequest(requestId) { return this.actor.approveDepositRequest(requestId); }
+    async approveWithdrawalRequest(requestId) { return this.actor.approveWithdrawalRequest(requestId); }
+    async createCategory(name) { return this.actor.createCategory(name); }
+    async createTournament(title, categoryId, entryFee, prizePool, totalSlots, rules, prizeDistribution, imageUrl) { return this.actor.createTournament(title, categoryId, entryFee, prizePool, totalSlots, rules, prizeDistribution, imageUrl); }
+    async getAllDepositRequests() { const r = await this.actor.getAllDepositRequests(); return r.map(d => ({...d, status: 'pending' in d.status ? Variant_pending_approved_rejected.pending : 'approved' in d.status ? Variant_pending_approved_rejected.approved : Variant_pending_approved_rejected.rejected, paymentMethod: 'jazzCash' in d.paymentMethod ? Variant_easyPaisa_jazzCash.jazzCash : Variant_easyPaisa_jazzCash.easyPaisa})); }
+    async getAllUsers() { return this.actor.getAllUsers(); }
+    async getAllWithdrawalRequests() { const r = await this.actor.getAllWithdrawalRequests(); return r.map(d => ({...d, status: 'pending' in d.status ? Variant_pending_approved_rejected.pending : 'approved' in d.status ? Variant_pending_approved_rejected.approved : Variant_pending_approved_rejected.rejected})); }
+    async getCallerDepositRequests() { const r = await this.actor.getCallerDepositRequests(); return r.map(d => ({...d, status: 'pending' in d.status ? Variant_pending_approved_rejected.pending : 'approved' in d.status ? Variant_pending_approved_rejected.approved : Variant_pending_approved_rejected.rejected, paymentMethod: 'jazzCash' in d.paymentMethod ? Variant_easyPaisa_jazzCash.jazzCash : Variant_easyPaisa_jazzCash.easyPaisa})); }
+    async getCallerJoinedSlot(tournamentId) { const r = await this.actor.getCallerJoinedSlot(tournamentId); return (r && r.length > 0 && r[0] !== undefined) ? r[0] : null; }
+    async getCallerUserProfile() { const r = await this.actor.getCallerUserProfile(); return (r && r.length > 0 && r[0] !== undefined) ? r[0] : null; }
+    async getCallerWithdrawalRequests() { const r = await this.actor.getCallerWithdrawalRequests(); return r.map(d => ({...d, status: 'pending' in d.status ? Variant_pending_approved_rejected.pending : 'approved' in d.status ? Variant_pending_approved_rejected.approved : Variant_pending_approved_rejected.rejected})); }
+    async getCategories() { return this.actor.getCategories(); }
+    async getGlobalLeaderboard() { return this.actor.getGlobalLeaderboard(); }
+    async getLeaderboard(tournamentId) { return this.actor.getLeaderboard(tournamentId); }
+    async getPaymentNumbers() { return this.actor.getPaymentNumbers(); }
+    async getPendingDepositRequests() { const r = await this.actor.getPendingDepositRequests(); return r.map(d => ({...d, status: Variant_pending_approved_rejected.pending, paymentMethod: 'jazzCash' in d.paymentMethod ? Variant_easyPaisa_jazzCash.jazzCash : Variant_easyPaisa_jazzCash.easyPaisa})); }
+    async getPendingWithdrawalRequests() { const r = await this.actor.getPendingWithdrawalRequests(); return r.map(d => ({...d, status: Variant_pending_approved_rejected.pending})); }
+    async getResetCode() { return this.actor.getResetCode(); }
+    async getTakenSlots(tournamentId) { return this.actor.getTakenSlots(tournamentId); }
+    async getTournament(id) { const r = await this.actor.getTournament(id); if (!r || r.length === 0 || r[0] === undefined) return null; const t = r[0]; return {...t, status: 'active' in t.status ? TournamentStatus.active : 'completed' in t.status ? TournamentStatus.completed : TournamentStatus.upcoming}; }
+    async getTournamentRoomDetails(tournamentId) { const r = await this.actor.getTournamentRoomDetails(tournamentId); return (r && r.length > 0 && r[0] !== undefined) ? r[0] : null; }
+    async getTournaments() { const r = await this.actor.getTournaments(); return r.map(t => ({...t, status: 'active' in t.status ? TournamentStatus.active : 'completed' in t.status ? TournamentStatus.completed : TournamentStatus.upcoming})); }
+    async getTransactionHistory() { const r = await this.actor.getTransactionHistory(); return r.map(t => ({...t, txnType: 'deposit' in t.txnType ? Variant_deposit_withdrawal_tournamentEntry.deposit : 'withdrawal' in t.txnType ? Variant_deposit_withdrawal_tournamentEntry.withdrawal : Variant_deposit_withdrawal_tournamentEntry.tournamentEntry})); }
+    async getUserByLegendId(legendId) { const r = await this.actor.getUserByLegendId(legendId); return (r && r.length > 0 && r[0] !== undefined) ? r[0] : null; }
+    async getUserProfile(user) { const r = await this.actor.getUserProfile(user); return (r && r.length > 0 && r[0] !== undefined) ? r[0] : null; }
+    async joinTournament(tournamentId, slotNumber) { return this.actor.joinTournament(tournamentId, slotNumber); }
+    async login(email, passwordHash) { const r = await this.actor.login(email, passwordHash); return 'ok' in r ? ({__kind__: 'ok' as const, ok: r.ok}) : ({__kind__: 'err' as const, err: r.err}); }
+    async postScores(tournamentId, scores) { return this.actor.postScores(tournamentId, scores); }
+    async registerAccount(email, passwordHash, fullName, inGameName, gameUID, mobileNo, referCode) { const r = await this.actor.registerAccount(email, passwordHash, fullName, inGameName, gameUID, mobileNo, referCode); return 'ok' in r ? ({__kind__: 'ok' as const, ok: null}) : ({__kind__: 'err' as const, err: r.err}); }
+    async registerUser(fullName, inGameName, gameUID, mobileNo, email, referCode) { return this.actor.registerUser(fullName, inGameName, gameUID, mobileNo, email, referCode); }
+    async rejectDepositRequest(requestId) { return this.actor.rejectDepositRequest(requestId); }
+    async rejectWithdrawalRequest(requestId) { return this.actor.rejectWithdrawalRequest(requestId); }
+    async removeCoinsByLegendId(legendId, amount) { return this.actor.removeCoinsByLegendId(legendId, amount); }
+    async resetPassword(email, resetCode, newPasswordHash) { const r = await this.actor.resetPassword(email, resetCode, newPasswordHash); return 'ok' in r ? ({__kind__: 'ok' as const, ok: null}) : ({__kind__: 'err' as const, err: r.err}); }
+    async saveCallerUserProfile(profile) { return this.actor.saveCallerUserProfile(profile); }
+    async setPaymentNumbers(jazzCash, easyPaisa) { return this.actor.setPaymentNumbers(jazzCash, easyPaisa); }
+    async setResetCode(code) { return this.actor.setResetCode(code); }
+    async setTournamentRoomDetails(tournamentId, roomId, roomPassword) { return this.actor.setTournamentRoomDetails(tournamentId, roomId, roomPassword); }
+    async setUsername(username) { return this.actor.setUsername(username); }
+    async submitDepositRequest(amount, paymentMethod, transactionReference) { const pm = paymentMethod === Variant_easyPaisa_jazzCash.jazzCash ? {jazzCash: null} : {easyPaisa: null}; return this.actor.submitDepositRequest(amount, pm, transactionReference); }
+    async submitWithdrawalRequest(amount) { return this.actor.submitWithdrawalRequest(amount); }
+    async updateUserInfo(fullName, inGameName, gameUID, mobileNo, email) { return this.actor.updateUserInfo(fullName, inGameName, gameUID, mobileNo, email); }
 }
-function from_candid_DepositRequest_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _DepositRequest): DepositRequest {
-    return from_candid_record_n5(_uploadFile, _downloadFile, value);
+function from_candid_UserRole_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
+    return from_candid_variant_n4(_uploadFile, _downloadFile, value);
 }
-function from_candid_TournamentStatus_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _TournamentStatus): TournamentStatus {
-    return from_candid_variant_n19(_uploadFile, _downloadFile, value);
-}
-function from_candid_Tournament_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Tournament): Tournament {
-    return from_candid_record_n17(_uploadFile, _downloadFile, value);
-}
-function from_candid_Transaction_n23(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Transaction): Transaction {
-    return from_candid_record_n24(_uploadFile, _downloadFile, value);
-}
-function from_candid_UserRole_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
-    return from_candid_variant_n14(_uploadFile, _downloadFile, value);
-}
-function from_candid_WithdrawalRequest_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _WithdrawalRequest): WithdrawalRequest {
-    return from_candid_record_n10(_uploadFile, _downloadFile, value);
-}
-function from_candid_opt_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
-    return value.length === 0 ? null : value[0];
-}
-function from_candid_opt_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_ExtendedUserProfile]): ExtendedUserProfile | null {
-    return value.length === 0 ? null : value[0];
-}
-function from_candid_opt_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Tournament]): Tournament | null {
-    return value.length === 0 ? null : from_candid_Tournament_n16(_uploadFile, _downloadFile, value[0]);
-}
-function from_candid_opt_n20(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [{
-        roomPassword: string;
-        roomId: string;
-    }]): {
-    roomPassword: string;
-    roomId: string;
-} | null {
-    return value.length === 0 ? null : value[0];
-}
-function from_candid_opt_n26(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [[Principal, _ExtendedUserProfile]]): [Principal, ExtendedUserProfile] | null {
-    return value.length === 0 ? null : value[0];
-}
-function from_candid_record_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    id: bigint;
-    status: {
-        pending: null;
-    } | {
-        approved: null;
-    } | {
-        rejected: null;
-    };
-    user: Principal;
-    timestamp: _Time;
-    amount: bigint;
-}): {
-    id: bigint;
-    status: Variant_pending_approved_rejected;
-    user: Principal;
-    timestamp: Time;
-    amount: bigint;
-} {
-    return {
-        id: value.id,
-        status: from_candid_variant_n6(_uploadFile, _downloadFile, value.status),
-        user: value.user,
-        timestamp: value.timestamp,
-        amount: value.amount
-    };
-}
-function from_candid_record_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    id: bigint;
-    categoryId: bigint;
-    status: _TournamentStatus;
-    prizeDistribution: Array<bigint>;
-    title: string;
-    imageUrl: string;
-    totalSlots: bigint;
-    entryFee: bigint;
-    slotsFilled: bigint;
-    rules: string;
-    prizePool: bigint;
-}): {
-    id: bigint;
-    categoryId: bigint;
-    status: TournamentStatus;
-    prizeDistribution: Array<bigint>;
-    title: string;
-    imageUrl: string;
-    totalSlots: bigint;
-    entryFee: bigint;
-    slotsFilled: bigint;
-    rules: string;
-    prizePool: bigint;
-} {
-    return {
-        id: value.id,
-        categoryId: value.categoryId,
-        status: from_candid_TournamentStatus_n18(_uploadFile, _downloadFile, value.status),
-        prizeDistribution: value.prizeDistribution,
-        title: value.title,
-        imageUrl: value.imageUrl,
-        totalSlots: value.totalSlots,
-        entryFee: value.entryFee,
-        slotsFilled: value.slotsFilled,
-        rules: value.rules,
-        prizePool: value.prizePool
-    };
-}
-function from_candid_record_n24(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    id: bigint;
-    user: Principal;
-    txnType: {
-        deposit: null;
-    } | {
-        withdrawal: null;
-    } | {
-        tournamentEntry: null;
-    };
-    timestamp: _Time;
-    amount: bigint;
-}): {
-    id: bigint;
-    user: Principal;
-    txnType: Variant_deposit_withdrawal_tournamentEntry;
-    timestamp: Time;
-    amount: bigint;
-} {
-    return {
-        id: value.id,
-        user: value.user,
-        txnType: from_candid_variant_n25(_uploadFile, _downloadFile, value.txnType),
-        timestamp: value.timestamp,
-        amount: value.amount
-    };
-}
-function from_candid_record_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    id: bigint;
-    status: {
-        pending: null;
-    } | {
-        approved: null;
-    } | {
-        rejected: null;
-    };
-    paymentMethod: {
-        easyPaisa: null;
-    } | {
-        jazzCash: null;
-    };
-    transactionReference: string;
-    user: Principal;
-    timestamp: _Time;
-    amount: bigint;
-}): {
-    id: bigint;
-    status: Variant_pending_approved_rejected;
-    paymentMethod: Variant_easyPaisa_jazzCash;
-    transactionReference: string;
-    user: Principal;
-    timestamp: Time;
-    amount: bigint;
-} {
-    return {
-        id: value.id,
-        status: from_candid_variant_n6(_uploadFile, _downloadFile, value.status),
-        paymentMethod: from_candid_variant_n7(_uploadFile, _downloadFile, value.paymentMethod),
-        transactionReference: value.transactionReference,
-        user: value.user,
-        timestamp: value.timestamp,
-        amount: value.amount
-    };
-}
-function from_candid_variant_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_variant_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     admin: null;
 } | {
     user: null;
@@ -1126,25 +388,7 @@ function from_candid_variant_n14(_uploadFile: (file: ExternalBlob) => Promise<Ui
 }): UserRole {
     return "admin" in value ? UserRole.admin : "user" in value ? UserRole.user : "guest" in value ? UserRole.guest : value;
 }
-function from_candid_variant_n19(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    active: null;
-} | {
-    upcoming: null;
-} | {
-    completed: null;
-}): TournamentStatus {
-    return "active" in value ? TournamentStatus.active : "upcoming" in value ? TournamentStatus.upcoming : "completed" in value ? TournamentStatus.completed : value;
-}
-function from_candid_variant_n25(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    deposit: null;
-} | {
-    withdrawal: null;
-} | {
-    tournamentEntry: null;
-}): Variant_deposit_withdrawal_tournamentEntry {
-    return "deposit" in value ? Variant_deposit_withdrawal_tournamentEntry.deposit : "withdrawal" in value ? Variant_deposit_withdrawal_tournamentEntry.withdrawal : "tournamentEntry" in value ? Variant_deposit_withdrawal_tournamentEntry.tournamentEntry : value;
-}
-function from_candid_variant_n27(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_variant_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     ok: _ExtendedUserProfile;
 } | {
     err: string;
@@ -1163,7 +407,7 @@ function from_candid_variant_n27(_uploadFile: (file: ExternalBlob) => Promise<Ui
         err: value.err
     } : value;
 }
-function from_candid_variant_n28(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_variant_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     ok: null;
 } | {
     err: string;
@@ -1182,34 +426,6 @@ function from_candid_variant_n28(_uploadFile: (file: ExternalBlob) => Promise<Ui
         err: value.err
     } : value;
 }
-function from_candid_variant_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    pending: null;
-} | {
-    approved: null;
-} | {
-    rejected: null;
-}): Variant_pending_approved_rejected {
-    return "pending" in value ? Variant_pending_approved_rejected.pending : "approved" in value ? Variant_pending_approved_rejected.approved : "rejected" in value ? Variant_pending_approved_rejected.rejected : value;
-}
-function from_candid_variant_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    easyPaisa: null;
-} | {
-    jazzCash: null;
-}): Variant_easyPaisa_jazzCash {
-    return "easyPaisa" in value ? Variant_easyPaisa_jazzCash.easyPaisa : "jazzCash" in value ? Variant_easyPaisa_jazzCash.jazzCash : value;
-}
-function from_candid_vec_n21(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Tournament>): Array<Tournament> {
-    return value.map((x)=>from_candid_Tournament_n16(_uploadFile, _downloadFile, x));
-}
-function from_candid_vec_n22(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Transaction>): Array<Transaction> {
-    return value.map((x)=>from_candid_Transaction_n23(_uploadFile, _downloadFile, x));
-}
-function from_candid_vec_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_DepositRequest>): Array<DepositRequest> {
-    return value.map((x)=>from_candid_DepositRequest_n4(_uploadFile, _downloadFile, x));
-}
-function from_candid_vec_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_WithdrawalRequest>): Array<WithdrawalRequest> {
-    return value.map((x)=>from_candid_WithdrawalRequest_n9(_uploadFile, _downloadFile, x));
-}
 function to_candid_UserRole_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
     return to_candid_variant_n2(_uploadFile, _downloadFile, value);
 }
@@ -1226,17 +442,6 @@ function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         user: null
     } : value == UserRole.guest ? {
         guest: null
-    } : value;
-}
-function to_candid_variant_n29(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Variant_easyPaisa_jazzCash): {
-    easyPaisa: null;
-} | {
-    jazzCash: null;
-} {
-    return value == Variant_easyPaisa_jazzCash.easyPaisa ? {
-        easyPaisa: null
-    } : value == Variant_easyPaisa_jazzCash.jazzCash ? {
-        jazzCash: null
     } : value;
 }
 export interface CreateActorOptions {

@@ -12,6 +12,19 @@ const actorRetry = (failureCount: number, error: unknown) => {
   return false;
 };
 
+/** Returns true if an error is an auth/anonymous-caller error from the backend */
+function isAuthError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("anonymous") ||
+    lower.includes("unauthorized") ||
+    lower.includes("only users") ||
+    lower.includes("access denied") ||
+    lower.includes("not authorized")
+  );
+}
+
 const actorRetryDelay = (attempt: number) => Math.min(500 * 2 ** attempt, 5000);
 
 // ─── User Profile ───────────────────────────────────────────────────────────
@@ -30,7 +43,14 @@ export function useGetCallerUserProfile() {
     queryKey: ["currentUserProfile"],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
-      return actor.getCallerUserProfile();
+      try {
+        return await actor.getCallerUserProfile();
+      } catch (err) {
+        if (isAuthError(err)) {
+          return null; // Gracefully return null rather than crashing the page
+        }
+        throw err;
+      }
     },
     enabled: !!actor && !actorFetching,
     retry: (failureCount, error) => {
@@ -38,6 +58,8 @@ export function useGetCallerUserProfile() {
       if (error instanceof Error && error.message === "Actor not available") {
         return failureCount < 5;
       }
+      // Don't retry auth errors — they won't resolve by retrying
+      if (isAuthError(error)) return false;
       // Retry other errors too (backend may be initializing)
       return failureCount < 3;
     },
@@ -73,17 +95,17 @@ export function useGetCallerUserRole() {
   });
 }
 
-const OWNER_EMAIL = "mrqlegendyt879@gmail.com";
+const ADMIN_LEGEND_ID = 1;
 
 export function useIsCallerAdmin() {
   const { actor, isFetching: actorFetching } = useActor();
   const { currentUser } = useLocalAuth();
 
   return useQuery({
-    queryKey: ["isCallerAdmin", currentUser?.email ?? ""],
+    queryKey: ["isCallerAdmin", currentUser?.legendId ?? ""],
     queryFn: async () => {
-      // First, check if the logged-in user is the owner by email
-      if (currentUser?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+      // Check if the logged-in user is the owner by legendId (#0001)
+      if (currentUser?.legendId === ADMIN_LEGEND_ID) {
         return true;
       }
 
@@ -210,10 +232,18 @@ export function useGetTransactionHistory() {
     queryKey: ["transactionHistory"],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
-      return actor.getTransactionHistory();
+      try {
+        return await actor.getTransactionHistory();
+      } catch (err) {
+        if (isAuthError(err)) return null;
+        throw err;
+      }
     },
     enabled: !!actor && !actorFetching,
-    retry: actorRetry,
+    retry: (failureCount, error) => {
+      if (isAuthError(error)) return false;
+      return actorRetry(failureCount, error);
+    },
     retryDelay: actorRetryDelay,
     refetchInterval: 15000,
     staleTime: 10000,
@@ -421,10 +451,18 @@ export function useGetCallerDepositRequests() {
     queryKey: ["callerDepositRequests"],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
-      return actor.getCallerDepositRequests();
+      try {
+        return await actor.getCallerDepositRequests();
+      } catch (err) {
+        if (isAuthError(err)) return null;
+        throw err;
+      }
     },
     enabled: !!actor && !actorFetching,
-    retry: actorRetry,
+    retry: (failureCount, error) => {
+      if (isAuthError(error)) return false;
+      return actorRetry(failureCount, error);
+    },
     retryDelay: actorRetryDelay,
     refetchInterval: 15000,
     staleTime: 10000,
@@ -437,10 +475,18 @@ export function useGetCallerWithdrawalRequests() {
     queryKey: ["callerWithdrawalRequests"],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
-      return actor.getCallerWithdrawalRequests();
+      try {
+        return await actor.getCallerWithdrawalRequests();
+      } catch (err) {
+        if (isAuthError(err)) return null;
+        throw err;
+      }
     },
     enabled: !!actor && !actorFetching,
-    retry: actorRetry,
+    retry: (failureCount, error) => {
+      if (isAuthError(error)) return false;
+      return actorRetry(failureCount, error);
+    },
     retryDelay: actorRetryDelay,
     refetchInterval: 15000,
     staleTime: 10000,
@@ -855,6 +901,39 @@ export function useSetTournamentRoomDetails() {
       qc.invalidateQueries({
         queryKey: ["tournamentRoomDetails", vars.tournamentId.toString()],
       });
+    },
+  });
+}
+
+// ─── Legend ID Auth ───────────────────────────────────────────────────────────
+
+export function useLoginByLegendId() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async ({
+      legendId,
+      passwordHash,
+    }: { legendId: bigint; passwordHash: string }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.loginByLegendId(legendId, passwordHash);
+    },
+  });
+}
+
+export function useResetPasswordByLegendId() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async ({
+      legendId,
+      resetCode,
+      newPasswordHash,
+    }: { legendId: bigint; resetCode: string; newPasswordHash: string }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.resetPasswordByLegendId(
+        legendId,
+        resetCode,
+        newPasswordHash,
+      );
     },
   });
 }

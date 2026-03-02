@@ -197,57 +197,6 @@ actor {
     tournamentRoomDetails.get(tournamentId);
   };
 
-  public shared func loginByLegendId(
-    legendId : Nat,
-    passwordHash : Text,
-  ) : async { #ok : ExtendedUserProfile; #err : Text } {
-    switch (legendIdToEmail.get(legendId)) {
-      case (null) {
-        #err("Legend ID not found. Please double check your ID");
-      };
-      case (?email) {
-        switch (accounts.get(email)) {
-          case (null) {
-            #err("Account not found for this Legend ID");
-          };
-          case (?accountInfo) {
-            if (accountInfo.passwordHash != passwordHash) {
-              #err("Wrong password. Please check your password");
-            } else {
-              #ok(accountInfo.profile);
-            };
-          };
-        };
-      };
-    };
-  };
-
-  public shared func resetPasswordByLegendId(
-    legendId : Nat,
-    resetCode : Text,
-    newPasswordHash : Text,
-  ) : async { #ok; #err : Text } {
-    if (resetCode != passwordResetCode or passwordResetCode == "") {
-      return #err("Invalid or expired reset code");
-    };
-    switch (legendIdToEmail.get(legendId)) {
-      case (null) { #err("Legend ID not found") };
-      case (?email) {
-        switch (accounts.get(email)) {
-          case (null) { #err("Account not found for this Legend ID") };
-          case (?accountInfo) {
-            let updatedAccountInfo = {
-              accountInfo with
-              passwordHash = newPasswordHash;
-            };
-            accounts.add(email, updatedAccountInfo);
-            #ok;
-          };
-        };
-      };
-    };
-  };
-
   public shared func registerAccount(
     email : Text,
     passwordHash : Text,

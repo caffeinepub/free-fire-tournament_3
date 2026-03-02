@@ -140,6 +140,13 @@ export interface backendInterface {
         __kind__: "err";
         err: string;
     }>;
+    loginByLegendId(legendId: bigint, passwordHash: string): Promise<{
+        __kind__: "ok";
+        ok: ExtendedUserProfile;
+    } | {
+        __kind__: "err";
+        err: string;
+    }>;
     postScores(tournamentId: bigint, scores: Array<[Principal, bigint]>): Promise<void>;
     registerAccount(email: string, passwordHash: string, fullName: string, inGameName: string, gameUID: string, mobileNo: string, referCode: string): Promise<{
         __kind__: "ok";
@@ -153,6 +160,13 @@ export interface backendInterface {
     rejectWithdrawalRequest(requestId: bigint): Promise<void>;
     removeCoinsByLegendId(legendId: bigint, amount: bigint): Promise<void>;
     resetPassword(email: string, resetCode: string, newPasswordHash: string): Promise<{
+        __kind__: "ok";
+        ok: null;
+    } | {
+        __kind__: "err";
+        err: string;
+    }>;
+    resetPasswordByLegendId(legendId: bigint, resetCode: string, newPasswordHash: string): Promise<{
         __kind__: "ok";
         ok: null;
     } | {

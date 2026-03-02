@@ -47,7 +47,9 @@ export default function ProfilePage() {
   const legendIdDisplay =
     legendId && legendId > 0n
       ? `#${legendId.toString().padStart(4, "0")}`
-      : "---";
+      : profileLoading && !profileError
+        ? "..."
+        : "---";
   const legendIdValue = legendId && legendId > 0n ? legendId.toString() : null;
 
   const handleCopyId = async () => {
@@ -147,8 +149,9 @@ export default function ProfilePage() {
 
   // Keep for potential future use but Legend ID is the primary identifier shown
 
-  // Profile loading state
-  if (profileLoading) {
+  // Profile loading state — only show skeleton if we have no local fallback either
+  // If profileError is true (auth error), fall through to main render with local data
+  if (profileLoading && !profileError && !currentUser) {
     return (
       <div className="flex flex-col gap-4 p-4 animate-pulse">
         <Skeleton className="h-64 w-full bg-muted/50 rounded-2xl" />
@@ -160,12 +163,7 @@ export default function ProfilePage() {
       </div>
     );
   }
-
-  // Profile error state — only show if truly failed and not just loading
-  if (profileError && !profileLoading) {
-    // Don't block — just render with fallback data from local session
-    // (fall through to main render below)
-  }
+  // On auth error or null profile — fall through to main render using local session data
 
   return (
     <div className="flex flex-col gap-4 p-4 animate-fade-in">

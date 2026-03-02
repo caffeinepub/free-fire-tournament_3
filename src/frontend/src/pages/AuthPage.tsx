@@ -7,17 +7,15 @@ import {
   Flame,
   KeyRound,
   Loader2,
-  RefreshCw,
   Shield,
-  WifiOff,
   Zap,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useActor } from "../hooks/useActor";
 import { useLocalAuth } from "../hooks/useLocalAuth";
 
-type Tab = "login" | "register" | "forgot";
+type View = "signin" | "register" | "forgot";
 
 async function hashPassword(password: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(password);
@@ -26,37 +24,27 @@ async function hashPassword(password: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+const inputStyle = {
+  background: "oklch(0.09 0.01 240)",
+  border: "1px solid oklch(0.22 0.02 240)",
+  color: "oklch(0.95 0.005 80)",
+};
+
+const inputFocusClass =
+  "h-11 font-body text-sm placeholder:text-muted-foreground focus:ring-1 focus:ring-[oklch(0.72_0.22_45/0.7)] focus-visible:ring-1 focus-visible:ring-[oklch(0.72_0.22_45/0.7)]";
+
 export default function AuthPage() {
-  const { login, register } = useLocalAuth();
-  const { actor, isFetching: actorLoading } = useActor();
-  const [tab, setTab] = useState<Tab>("login");
-  const [isLoading, setIsLoading] = useState(false);
-  const [actorWaitSeconds, setActorWaitSeconds] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Guard against double-submission (race condition on slow connections)
-  const submittingRef = useRef(false);
+  const { actor } = useActor();
+  const { setCurrentUser } = useLocalAuth();
+  const [view, setView] = useState<View>("signin");
 
-  // Track how long we've been waiting for actor
-  useEffect(() => {
-    if (!actor && !isLoading) {
-      timerRef.current = setInterval(() => {
-        setActorWaitSeconds((s) => s + 1);
-      }, 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-      setActorWaitSeconds(0);
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [actor, isLoading]);
+  // ── Sign In ────────────────────────────────────────────────────────────────
+  const [siLegendId, setSiLegendId] = useState("");
+  const [siPassword, setSiPassword] = useState("");
+  const [showSiPwd, setShowSiPwd] = useState(false);
+  const [siLoading, setSiLoading] = useState(false);
 
-  // Login fields
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [showLoginPwd, setShowLoginPwd] = useState(false);
-
-  // Register fields
+  // ── Register ───────────────────────────────────────────────────────────────
   const [fullName, setFullName] = useState("");
   const [inGameName, setInGameName] = useState("");
   const [gameUID, setGameUID] = useState("");
@@ -68,49 +56,69 @@ export default function AuthPage() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [showRegPwd, setShowRegPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+  const [regLoading, setRegLoading] = useState(false);
+  const submittingRef = useRef(false);
 
-  // Forgot Password fields
-  const [fpEmail, setFpEmail] = useState("");
+  // ── Forgot Password ────────────────────────────────────────────────────────
+  const [fpLegendId, setFpLegendId] = useState("");
   const [fpResetCode, setFpResetCode] = useState("");
   const [fpNewPassword, setFpNewPassword] = useState("");
   const [fpConfirmPassword, setFpConfirmPassword] = useState("");
   const [showFpPwd, setShowFpPwd] = useState(false);
+  const [fpLoading, setFpLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submittingRef.current) return;
-    if (!loginEmail.trim()) {
-      toast.error("Please enter your email");
+    const idNum = Number.parseInt(siLegendId.trim(), 10);
+    if (!siLegendId.trim() || Number.isNaN(idNum) || idNum < 1) {
+      toast.error("Please enter your Legend ID (e.g. 1 or 0001)");
       return;
     }
-    if (!loginPassword) {
+    if (!siPassword) {
       toast.error("Please enter your password");
       return;
     }
-
     if (!actor) {
-      toast.error(
-        "Server not connected yet. Please wait a moment and try again.",
-        { duration: 4000 },
-      );
+      toast.error("Connecting to server, please try again in a moment.");
       return;
     }
 
-    submittingRef.current = true;
-    setIsLoading(true);
+    setSiLoading(true);
     try {
-      await login(loginEmail.trim(), loginPassword);
+      const passwordHash = await hashPassword(siPassword);
+      const result = await actor.loginByLegendId(BigInt(idNum), passwordHash);
+
+      if (result.__kind__ === "err") {
+        toast.error(result.err || "Invalid Legend ID or password");
+        return;
+      }
+
+      const profile = result.ok;
+      const user = {
+        email: profile.email,
+        legendId: Number(profile.legendId),
+        fullName: profile.fullName,
+        inGameName: profile.inGameName,
+        gameUID: profile.gameUID,
+        mobileNo: profile.mobileNo,
+        referCode: profile.referCode,
+      };
+
+      setCurrentUser(user);
+      toast.success(`Welcome back, ${profile.inGameName || profile.fullName}!`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Login failed");
     } finally {
-      setIsLoading(false);
-      submittingRef.current = false;
+      setSiLoading(false);
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submittingRef.current) return;
+
     if (!fullName.trim()) {
       toast.error("Full name is required");
       return;
@@ -121,10 +129,6 @@ export default function AuthPage() {
     }
     if (!mobileNo.trim()) {
       toast.error("Mobile number is required");
-      return;
-    }
-    if (!regEmail.trim()) {
-      toast.error("Email is required");
       return;
     }
     if (!regPassword) {
@@ -143,60 +147,76 @@ export default function AuthPage() {
       toast.error("Please accept the Privacy Policy");
       return;
     }
-
     if (!actor) {
-      toast.error(
-        "Server not connected yet. Please wait a moment and try again.",
-        { duration: 4000 },
-      );
+      toast.error("Server not connected. Please reload and try again.");
       return;
     }
 
     submittingRef.current = true;
-    setIsLoading(true);
-    const emailUsed = regEmail.trim().toLowerCase();
+    setRegLoading(true);
+
+    // Use provided email or generate a placeholder
+    const email = regEmail.trim()
+      ? regEmail.trim().toLowerCase()
+      : `legend_${Date.now()}@arena.local`;
+
     try {
-      await register({
-        email: emailUsed,
-        fullName: fullName.trim(),
-        inGameName: inGameName.trim(),
-        gameUID: gameUID.trim(),
-        mobileNo: mobileNo.trim(),
-        referCode: referCode.trim(),
-        password: regPassword,
-      });
-      // Success — switch to login tab with email pre-filled
-      toast.success("Account created! Please sign in.");
-      setLoginEmail(emailUsed);
-      setTab("login");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Registration failed";
-      const isAlreadyExists =
-        msg.toLowerCase().includes("already") ||
-        msg.toLowerCase().includes("exist");
-      if (isAlreadyExists) {
-        toast.error(
-          "This email is already registered. Please sign in instead.",
-        );
-        setLoginEmail(emailUsed);
-        setTab("login");
-      } else {
-        toast.error(msg);
+      const passwordHash = await hashPassword(regPassword);
+
+      const regResult = await actor.registerAccount(
+        email,
+        passwordHash,
+        fullName.trim(),
+        inGameName.trim(),
+        gameUID.trim(),
+        mobileNo.trim(),
+        referCode.trim(),
+      );
+
+      if (regResult.__kind__ === "err") {
+        const errMsg = regResult.err ?? "";
+        if (errMsg.toLowerCase().includes("already")) {
+          toast.error(
+            "This email is already registered. Please sign in with your Legend ID.",
+          );
+        } else {
+          toast.error(errMsg || "Registration failed");
+        }
+        return;
       }
+
+      toast.success(
+        "Registration successful! Sign in with your Legend ID to continue.",
+      );
+
+      // Reset form and switch to sign in
+      setFullName("");
+      setInGameName("");
+      setGameUID("");
+      setMobileNo("");
+      setRegEmail("");
+      setRegPassword("");
+      setConfirmPassword("");
+      setReferCode("");
+      setPrivacyAccepted(false);
+      setView("signin");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
-      setIsLoading(false);
+      setRegLoading(false);
       submittingRef.current = false;
     }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fpEmail.trim()) {
-      toast.error("Please enter your email");
+    const idNum = Number.parseInt(fpLegendId.trim(), 10);
+    if (!fpLegendId.trim() || Number.isNaN(idNum) || idNum < 1) {
+      toast.error("Please enter your Legend ID");
       return;
     }
     if (!fpResetCode.trim()) {
-      toast.error("Please enter the reset code");
+      toast.error("Please enter the reset code from admin");
       return;
     }
     if (!fpNewPassword) {
@@ -211,53 +231,60 @@ export default function AuthPage() {
       toast.error("Passwords do not match");
       return;
     }
-
     if (!actor) {
       toast.error("Connecting to server, please try again in a moment.");
       return;
     }
 
-    setIsLoading(true);
+    setFpLoading(true);
     try {
       const newPasswordHash = await hashPassword(fpNewPassword);
-      const result = await actor.resetPassword(
-        fpEmail.trim().toLowerCase(),
+      const result = await actor.resetPasswordByLegendId(
+        BigInt(idNum),
         fpResetCode.trim(),
         newPasswordHash,
       );
 
       if (result.__kind__ === "err") {
-        toast.error(result.err);
+        toast.error(result.err || "Reset failed");
         return;
       }
 
       toast.success("Password reset successfully! Please sign in.");
-      setFpEmail("");
+      setFpLegendId("");
       setFpResetCode("");
       setFpNewPassword("");
       setFpConfirmPassword("");
-      setTab("login");
+      setView("signin");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to reset password",
       );
     } finally {
-      setIsLoading(false);
+      setFpLoading(false);
     }
   };
 
-  const inputStyle = {
-    background: "oklch(0.09 0.01 240)",
-    border: "1px solid oklch(0.22 0.02 240)",
-    color: "oklch(0.95 0.005 80)",
-  };
-
-  const inputFocusClass =
-    "h-11 font-body text-sm placeholder:text-muted-foreground focus:ring-1 focus:ring-[oklch(0.72_0.22_45/0.7)] focus-visible:ring-1 focus-visible:ring-[oklch(0.72_0.22_45/0.7)]";
+  const tabBtn = (label: string, active: boolean, onClick: () => void) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex-1 py-3 font-display text-sm font-bold tracking-wider uppercase transition-all"
+      style={{
+        color: active ? "oklch(0.72 0.22 45)" : "oklch(0.5 0.02 240)",
+        borderBottom: active
+          ? "2px solid oklch(0.72 0.22 45)"
+          : "2px solid transparent",
+        background: active ? "oklch(0.72 0.22 45 / 0.06)" : "transparent",
+      }}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="min-h-dvh gradient-bg flex flex-col items-center justify-between p-5 relative overflow-hidden">
-      {/* Background decoration */}
+      {/* Background decorations */}
       <div className="absolute inset-0 diagonal-stripe opacity-40 pointer-events-none" />
       <div
         className="absolute top-0 right-0 w-64 h-64 rounded-full pointer-events-none"
@@ -266,18 +293,9 @@ export default function AuthPage() {
             "radial-gradient(circle, oklch(0.72 0.22 45 / 0.08) 0%, transparent 70%)",
         }}
       />
-      <div
-        className="absolute bottom-0 left-0 w-48 h-48 rounded-full pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(circle, oklch(0.58 0.25 25 / 0.08) 0%, transparent 70%)",
-        }}
-      />
 
-      {/* Top spacer */}
       <div />
 
-      {/* Main content */}
       <div className="flex flex-col items-center gap-6 animate-slide-up w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
@@ -304,10 +322,10 @@ export default function AuthPage() {
           </div>
           <div className="text-center">
             <h1 className="font-display text-3xl font-bold neon-text-orange tracking-widest uppercase">
-              FF ARENA
+              LEGEND ARENA
             </h1>
             <p className="text-muted-foreground text-xs font-body mt-0.5 tracking-wider">
-              TOURNAMENT PLATFORM
+              FREE FIRE TOURNAMENT PLATFORM
             </p>
           </div>
         </div>
@@ -339,63 +357,6 @@ export default function AuthPage() {
           ))}
         </div>
 
-        {/* Server connection banner */}
-        {!actor && (
-          <div
-            className="w-full rounded-xl px-4 py-3 flex items-center gap-3"
-            style={{
-              background:
-                actorWaitSeconds > 5
-                  ? "oklch(0.58 0.25 25 / 0.15)"
-                  : "oklch(0.72 0.22 45 / 0.1)",
-              border: `1px solid ${actorWaitSeconds > 5 ? "oklch(0.58 0.25 25 / 0.4)" : "oklch(0.72 0.22 45 / 0.3)"}`,
-            }}
-          >
-            {actorLoading || actorWaitSeconds <= 5 ? (
-              <Loader2
-                className="w-4 h-4 animate-spin shrink-0"
-                style={{ color: "oklch(0.72 0.22 45)" }}
-              />
-            ) : (
-              <WifiOff
-                className="w-4 h-4 shrink-0"
-                style={{ color: "oklch(0.58 0.25 25)" }}
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <p
-                className="text-xs font-body"
-                style={{
-                  color:
-                    actorWaitSeconds > 5
-                      ? "oklch(0.75 0.15 35)"
-                      : "oklch(0.85 0.05 80)",
-                }}
-              >
-                {actorWaitSeconds > 5
-                  ? "Server taking longer than usual..."
-                  : "Connecting to server..."}
-              </p>
-              {actorWaitSeconds > 5 && (
-                <p className="text-[10px] text-muted-foreground font-body mt-0.5">
-                  Please wait or reload the page
-                </p>
-              )}
-            </div>
-            {actorWaitSeconds > 8 && (
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="flex items-center gap-1 text-xs font-bold shrink-0 transition-opacity hover:opacity-80"
-                style={{ color: "oklch(0.72 0.22 45)" }}
-              >
-                <RefreshCw className="w-3 h-3" />
-                RELOAD
-              </button>
-            )}
-          </div>
-        )}
-
         {/* Auth card */}
         <div
           className="w-full rounded-2xl overflow-hidden"
@@ -405,423 +366,447 @@ export default function AuthPage() {
             border: "1px solid oklch(0.25 0.02 240)",
           }}
         >
-          {/* Tab bar — only show login/register tabs; forgot is accessed via link */}
-          {tab !== "forgot" && (
-            <div
-              className="grid grid-cols-2"
-              style={{ borderBottom: "1px solid oklch(0.2 0.02 240)" }}
-            >
-              {(["login", "register"] as ("login" | "register")[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
-                  className="py-3 font-display font-bold text-sm tracking-wider uppercase transition-all"
-                  style={{
-                    background:
-                      tab === t ? "oklch(0.72 0.22 45 / 0.12)" : "transparent",
-                    color:
-                      tab === t
-                        ? "oklch(0.72 0.22 45)"
-                        : "oklch(0.55 0.02 240)",
-                    borderBottom:
-                      tab === t
-                        ? "2px solid oklch(0.72 0.22 45)"
-                        : "2px solid transparent",
-                  }}
-                >
-                  {t === "login" ? "SIGN IN" : "REGISTER"}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Forgot Password header */}
-          {tab === "forgot" && (
-            <div
-              className="px-5 py-4 flex items-center gap-2"
-              style={{
-                borderBottom: "1px solid oklch(0.2 0.02 240)",
-                background: "oklch(0.72 0.22 45 / 0.06)",
-              }}
-            >
-              <KeyRound
-                className="w-4 h-4"
-                style={{ color: "oklch(0.72 0.22 45)" }}
-              />
-              <span
-                className="font-display font-bold text-sm tracking-wider"
-                style={{ color: "oklch(0.72 0.22 45)" }}
+          {/* ── SIGN IN ─────────────────────────────────────────────────────── */}
+          {view === "signin" && (
+            <>
+              <div
+                className="flex"
+                style={{ borderBottom: "1px solid oklch(0.2 0.02 240)" }}
               >
-                RESET PASSWORD
-              </span>
-            </div>
-          )}
+                {tabBtn("SIGN IN", true, () => setView("signin"))}
+                {tabBtn("REGISTER", false, () => setView("register"))}
+              </div>
 
-          <div className="p-5">
-            {tab === "login" ? (
-              /* ─── LOGIN FORM ─── */
-              <form onSubmit={handleLogin} className="flex flex-col gap-3">
-                <Input
-                  type="email"
-                  placeholder="Email Address"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  className={inputFocusClass}
-                  style={inputStyle}
-                  autoComplete="email"
-                />
-                <div className="relative">
-                  <Input
-                    type={showLoginPwd ? "text" : "password"}
-                    placeholder="Password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    className={`${inputFocusClass} pr-10`}
-                    style={inputStyle}
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowLoginPwd((p) => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
+              <div className="p-5">
+                <form onSubmit={handleSignIn} className="flex flex-col gap-3">
+                  {/* Legend ID info box */}
+                  <div
+                    className="rounded-xl p-3"
+                    style={{
+                      background: "oklch(0.72 0.22 45 / 0.06)",
+                      border: "1px solid oklch(0.72 0.22 45 / 0.2)",
+                    }}
                   >
-                    {showLoginPwd ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
+                    <p className="text-[10px] font-body text-muted-foreground leading-relaxed text-center">
+                      Sign in with your{" "}
+                      <span className="neon-text-orange font-bold">
+                        Legend ID
+                      </span>{" "}
+                      (e.g.{" "}
+                      <span className="neon-text-gold font-bold">#0001</span>)
+                      and password
+                    </p>
+                  </div>
 
-                <Button
-                  type="submit"
-                  disabled={isLoading || !actor}
-                  className="w-full h-11 font-display text-sm font-bold tracking-wider uppercase btn-glow mt-1"
-                  style={{
-                    background:
-                      isLoading || !actor
-                        ? "oklch(0.45 0.1 45)"
-                        : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
-                    color: "oklch(0.08 0.01 240)",
-                    border: "none",
-                  }}
-                >
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      SIGNING IN...
+                  <div className="relative">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-display font-bold pointer-events-none"
+                      style={{ color: "oklch(0.72 0.22 45)" }}
+                    >
+                      #
                     </span>
-                  ) : !actor ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      CONNECTING...
-                    </span>
-                  ) : (
-                    "SIGN IN"
-                  )}
-                </Button>
+                    <Input
+                      type="number"
+                      placeholder="Legend ID (e.g. 1)"
+                      value={siLegendId}
+                      onChange={(e) => setSiLegendId(e.target.value)}
+                      className={`${inputFocusClass} pl-7`}
+                      style={inputStyle}
+                      min={1}
+                      autoComplete="username"
+                    />
+                  </div>
 
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground font-body">
-                    Don't have an account?{" "}
+                  <div className="relative">
+                    <Input
+                      type={showSiPwd ? "text" : "password"}
+                      placeholder="Password"
+                      value={siPassword}
+                      onChange={(e) => setSiPassword(e.target.value)}
+                      className={`${inputFocusClass} pr-10`}
+                      style={inputStyle}
+                      autoComplete="current-password"
+                    />
                     <button
                       type="button"
-                      onClick={() => setTab("register")}
-                      className="neon-text-orange font-bold"
+                      onClick={() => setShowSiPwd((p) => !p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      tabIndex={-1}
                     >
-                      Register
+                      {showSiPwd ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
-                  </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={siLoading || !actor}
+                    className="w-full h-11 font-display text-sm font-bold tracking-wider uppercase btn-glow mt-1"
+                    style={{
+                      background:
+                        siLoading || !actor
+                          ? "oklch(0.45 0.1 45)"
+                          : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+                      color: "oklch(0.08 0.01 240)",
+                      border: "none",
+                    }}
+                  >
+                    {siLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        SIGNING IN...
+                      </span>
+                    ) : !actor ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        CONNECTING...
+                      </span>
+                    ) : (
+                      "🔐 SIGN IN"
+                    )}
+                  </Button>
+
                   <button
                     type="button"
-                    onClick={() => setTab("forgot")}
-                    className="text-xs font-body font-bold transition-colors"
+                    onClick={() => setView("forgot")}
+                    className="text-xs font-body font-bold text-center transition-colors mt-1"
                     style={{ color: "oklch(0.6 0.1 240)" }}
                   >
-                    Forgot?
+                    Forgot Password?
                   </button>
-                </div>
-              </form>
-            ) : tab === "register" ? (
-              /* ─── REGISTER FORM ─── */
-              <form onSubmit={handleRegister} className="flex flex-col gap-2.5">
-                <Input
-                  type="text"
-                  placeholder="Full Name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className={inputFocusClass}
-                  style={inputStyle}
-                  autoComplete="name"
-                />
-                <Input
-                  type="text"
-                  placeholder="In-Game Name"
-                  value={inGameName}
-                  onChange={(e) => setInGameName(e.target.value)}
-                  className={inputFocusClass}
-                  style={inputStyle}
-                />
-                <Input
-                  type="text"
-                  placeholder="Game UID (Optional)"
-                  value={gameUID}
-                  onChange={(e) => setGameUID(e.target.value)}
-                  className={inputFocusClass}
-                  style={inputStyle}
-                />
-                <div className="relative">
-                  <span
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-body pointer-events-none"
-                    style={{ color: "oklch(0.72 0.22 45)" }}
-                  >
-                    +92
-                  </span>
-                  <Input
-                    type="tel"
-                    placeholder="Mobile No."
-                    value={mobileNo}
-                    onChange={(e) => setMobileNo(e.target.value)}
-                    className={`${inputFocusClass} pl-11`}
-                    style={inputStyle}
-                    autoComplete="tel"
-                  />
-                </div>
-                <Input
-                  type="email"
-                  placeholder="Email Address"
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  className={inputFocusClass}
-                  style={inputStyle}
-                  autoComplete="email"
-                />
-                <div className="relative">
-                  <Input
-                    type={showRegPwd ? "text" : "password"}
-                    placeholder="Password"
-                    value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    className={`${inputFocusClass} pr-10`}
-                    style={inputStyle}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowRegPwd((p) => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showRegPwd ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                <div className="relative">
-                  <Input
-                    type={showConfirmPwd ? "text" : "password"}
-                    placeholder="Confirm Password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className={`${inputFocusClass} pr-10`}
-                    style={inputStyle}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPwd((p) => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showConfirmPwd ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                <Input
-                  type="text"
-                  placeholder="Refer Code (Optional)"
-                  value={referCode}
-                  onChange={(e) => setReferCode(e.target.value)}
-                  className={inputFocusClass}
-                  style={inputStyle}
-                />
+                </form>
+              </div>
+            </>
+          )}
 
-                {/* Privacy policy */}
-                <div className="flex items-start gap-2.5 mt-1">
-                  <Checkbox
-                    id="privacy"
-                    checked={privacyAccepted}
-                    onCheckedChange={(v) => setPrivacyAccepted(!!v)}
-                    className="mt-0.5 border-muted-foreground data-[state=checked]:bg-[oklch(0.72_0.22_45)] data-[state=checked]:border-[oklch(0.72_0.22_45)]"
-                  />
-                  <label
-                    htmlFor="privacy"
-                    className="text-xs font-body text-muted-foreground leading-snug cursor-pointer"
-                  >
-                    I agree to the{" "}
-                    <span className="neon-text-orange font-bold">
-                      Privacy Policy
-                    </span>{" "}
-                    and{" "}
-                    <span className="neon-text-orange font-bold">
-                      Terms of Service
-                    </span>
-                  </label>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={isLoading || !actor}
-                  className="w-full h-11 font-display text-sm font-bold tracking-wider uppercase btn-glow mt-1"
-                  style={{
-                    background:
-                      isLoading || !actor
-                        ? "oklch(0.45 0.1 45)"
-                        : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
-                    color: "oklch(0.08 0.01 240)",
-                    border: "none",
-                  }}
-                >
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      CREATING ACCOUNT...
-                    </span>
-                  ) : !actor ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      CONNECTING...
-                    </span>
-                  ) : (
-                    "SIGN UP"
-                  )}
-                </Button>
-
-                <p className="text-center text-xs text-muted-foreground font-body">
-                  Already have an account?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setTab("login")}
-                    className="neon-text-orange font-bold"
-                  >
-                    Sign In
-                  </button>
-                </p>
-              </form>
-            ) : (
-              /* ─── FORGOT PASSWORD FORM ─── */
-              <form
-                onSubmit={handleForgotPassword}
-                className="flex flex-col gap-3"
+          {/* ── REGISTER ────────────────────────────────────────────────────── */}
+          {view === "register" && (
+            <>
+              <div
+                className="flex"
+                style={{ borderBottom: "1px solid oklch(0.2 0.02 240)" }}
               >
-                <p className="text-xs font-body text-muted-foreground leading-relaxed">
-                  Contact admin to get your reset code, then enter it below to
-                  set a new password.
-                </p>
+                {tabBtn("SIGN IN", false, () => setView("signin"))}
+                {tabBtn("REGISTER", true, () => setView("register"))}
+              </div>
 
-                <Input
-                  type="email"
-                  placeholder="Email Address"
-                  value={fpEmail}
-                  onChange={(e) => setFpEmail(e.target.value)}
-                  className={inputFocusClass}
-                  style={inputStyle}
-                  autoComplete="email"
-                />
-
-                <Input
-                  type="text"
-                  placeholder="Reset Code (from admin)"
-                  value={fpResetCode}
-                  onChange={(e) => setFpResetCode(e.target.value)}
-                  className={inputFocusClass}
-                  style={inputStyle}
-                />
-
-                <div className="relative">
-                  <Input
-                    type={showFpPwd ? "text" : "password"}
-                    placeholder="New Password"
-                    value={fpNewPassword}
-                    onChange={(e) => setFpNewPassword(e.target.value)}
-                    className={`${inputFocusClass} pr-10`}
-                    style={inputStyle}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowFpPwd((p) => !p)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showFpPwd ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-
-                <Input
-                  type="password"
-                  placeholder="Confirm New Password"
-                  value={fpConfirmPassword}
-                  onChange={(e) => setFpConfirmPassword(e.target.value)}
-                  className={inputFocusClass}
-                  style={inputStyle}
-                  autoComplete="new-password"
-                />
-
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full h-11 font-display text-sm font-bold tracking-wider uppercase btn-glow mt-1"
-                  style={{
-                    background: isLoading
-                      ? "oklch(0.45 0.1 45)"
-                      : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
-                    color: "oklch(0.08 0.01 240)",
-                    border: "none",
-                  }}
+              <div className="p-5">
+                <form
+                  onSubmit={handleRegister}
+                  className="flex flex-col gap-2.5"
                 >
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      RESETTING...
-                    </span>
-                  ) : (
-                    "RESET PASSWORD"
-                  )}
-                </Button>
+                  {/* Auto Legend ID notice */}
+                  <div
+                    className="rounded-xl p-3 text-center"
+                    style={{
+                      background: "oklch(0.72 0.22 45 / 0.06)",
+                      border: "1px solid oklch(0.72 0.22 45 / 0.2)",
+                    }}
+                  >
+                    <p className="text-[10px] font-body text-muted-foreground leading-relaxed">
+                      Your{" "}
+                      <span className="neon-text-orange font-bold">
+                        Legend ID
+                      </span>{" "}
+                      will be assigned automatically after registration
+                    </p>
+                  </div>
 
-                <p className="text-center text-xs text-muted-foreground font-body">
-                  Remember your password?{" "}
+                  <Input
+                    type="text"
+                    placeholder="Full Name *"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className={inputFocusClass}
+                    style={inputStyle}
+                    autoComplete="name"
+                  />
+                  <Input
+                    type="text"
+                    placeholder="In-Game Name *"
+                    value={inGameName}
+                    onChange={(e) => setInGameName(e.target.value)}
+                    className={inputFocusClass}
+                    style={inputStyle}
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Game UID (Optional)"
+                    value={gameUID}
+                    onChange={(e) => setGameUID(e.target.value)}
+                    className={inputFocusClass}
+                    style={inputStyle}
+                  />
+                  <div className="relative">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-body pointer-events-none"
+                      style={{ color: "oklch(0.72 0.22 45)" }}
+                    >
+                      +92
+                    </span>
+                    <Input
+                      type="tel"
+                      placeholder="Mobile No. *"
+                      value={mobileNo}
+                      onChange={(e) => setMobileNo(e.target.value)}
+                      className={`${inputFocusClass} pl-11`}
+                      style={inputStyle}
+                      autoComplete="tel"
+                    />
+                  </div>
+                  <Input
+                    type="email"
+                    placeholder="Email Address (Optional)"
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    className={inputFocusClass}
+                    style={inputStyle}
+                    autoComplete="email"
+                  />
+                  <div className="relative">
+                    <Input
+                      type={showRegPwd ? "text" : "password"}
+                      placeholder="Password *"
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      className={`${inputFocusClass} pr-10`}
+                      style={inputStyle}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowRegPwd((p) => !p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showRegPwd ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      type={showConfirmPwd ? "text" : "password"}
+                      placeholder="Confirm Password *"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className={`${inputFocusClass} pr-10`}
+                      style={inputStyle}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPwd((p) => !p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showConfirmPwd ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                  <Input
+                    type="text"
+                    placeholder="Refer Code (Optional)"
+                    value={referCode}
+                    onChange={(e) => setReferCode(e.target.value)}
+                    className={inputFocusClass}
+                    style={inputStyle}
+                  />
+
+                  <div className="flex items-start gap-2.5 mt-1">
+                    <Checkbox
+                      id="privacy"
+                      checked={privacyAccepted}
+                      onCheckedChange={(v) => setPrivacyAccepted(!!v)}
+                      className="mt-0.5 border-muted-foreground data-[state=checked]:bg-[oklch(0.72_0.22_45)] data-[state=checked]:border-[oklch(0.72_0.22_45)]"
+                    />
+                    <label
+                      htmlFor="privacy"
+                      className="text-xs font-body text-muted-foreground leading-snug cursor-pointer"
+                    >
+                      I agree to the{" "}
+                      <span className="neon-text-orange font-bold">
+                        Privacy Policy
+                      </span>{" "}
+                      and{" "}
+                      <span className="neon-text-orange font-bold">
+                        Terms of Service
+                      </span>
+                    </label>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={regLoading || !actor}
+                    className="w-full h-11 font-display text-sm font-bold tracking-wider uppercase btn-glow mt-1"
+                    style={{
+                      background:
+                        regLoading || !actor
+                          ? "oklch(0.45 0.1 45)"
+                          : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+                      color: "oklch(0.08 0.01 240)",
+                      border: "none",
+                    }}
+                  >
+                    {regLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        CREATING ACCOUNT...
+                      </span>
+                    ) : !actor ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        CONNECTING...
+                      </span>
+                    ) : (
+                      "🎮 CREATE ACCOUNT"
+                    )}
+                  </Button>
+                </form>
+              </div>
+            </>
+          )}
+
+          {/* ── FORGOT PASSWORD ──────────────────────────────────────────────── */}
+          {view === "forgot" && (
+            <>
+              <div
+                className="px-5 py-4 flex items-center gap-2"
+                style={{
+                  borderBottom: "1px solid oklch(0.2 0.02 240)",
+                  background: "oklch(0.72 0.22 45 / 0.06)",
+                }}
+              >
+                <KeyRound
+                  className="w-4 h-4"
+                  style={{ color: "oklch(0.72 0.22 45)" }}
+                />
+                <span
+                  className="font-display font-bold text-sm tracking-wider"
+                  style={{ color: "oklch(0.72 0.22 45)" }}
+                >
+                  RESET PASSWORD
+                </span>
+              </div>
+              <div className="p-5">
+                <form
+                  onSubmit={handleForgotPassword}
+                  className="flex flex-col gap-3"
+                >
+                  <p className="text-xs font-body text-muted-foreground leading-relaxed">
+                    Contact admin to get your reset code, then enter your Legend
+                    ID and new password.
+                  </p>
+
+                  <div className="relative">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-display font-bold pointer-events-none"
+                      style={{ color: "oklch(0.72 0.22 45)" }}
+                    >
+                      #
+                    </span>
+                    <Input
+                      type="number"
+                      placeholder="Legend ID (e.g. 1)"
+                      value={fpLegendId}
+                      onChange={(e) => setFpLegendId(e.target.value)}
+                      className={`${inputFocusClass} pl-7`}
+                      style={inputStyle}
+                      min={1}
+                    />
+                  </div>
+
+                  <Input
+                    type="text"
+                    placeholder="Reset Code (from admin)"
+                    value={fpResetCode}
+                    onChange={(e) => setFpResetCode(e.target.value)}
+                    className={inputFocusClass}
+                    style={inputStyle}
+                  />
+
+                  <div className="relative">
+                    <Input
+                      type={showFpPwd ? "text" : "password"}
+                      placeholder="New Password"
+                      value={fpNewPassword}
+                      onChange={(e) => setFpNewPassword(e.target.value)}
+                      className={`${inputFocusClass} pr-10`}
+                      style={inputStyle}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowFpPwd((p) => !p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      tabIndex={-1}
+                    >
+                      {showFpPwd ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  <Input
+                    type="password"
+                    placeholder="Confirm New Password"
+                    value={fpConfirmPassword}
+                    onChange={(e) => setFpConfirmPassword(e.target.value)}
+                    className={inputFocusClass}
+                    style={inputStyle}
+                  />
+
+                  <Button
+                    type="submit"
+                    disabled={fpLoading || !actor}
+                    className="w-full h-11 font-display text-sm font-bold tracking-wider uppercase btn-glow mt-1"
+                    style={{
+                      background:
+                        fpLoading || !actor
+                          ? "oklch(0.45 0.1 45)"
+                          : "linear-gradient(135deg, oklch(0.72 0.22 45), oklch(0.65 0.25 35))",
+                      color: "oklch(0.08 0.01 240)",
+                      border: "none",
+                    }}
+                  >
+                    {fpLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        RESETTING...
+                      </span>
+                    ) : (
+                      "RESET PASSWORD"
+                    )}
+                  </Button>
+
                   <button
                     type="button"
-                    onClick={() => setTab("login")}
-                    className="neon-text-orange font-bold"
+                    onClick={() => setView("signin")}
+                    className="text-xs font-body text-center neon-text-orange font-bold"
                   >
-                    Sign In
+                    Back to Sign In
                   </button>
-                </p>
-              </form>
-            )}
-          </div>
+                </form>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* Footer */}
       <p className="text-muted-foreground text-xs font-body text-center mt-4">
-        © 2026. Built with ❤️ using{" "}
+        © {new Date().getFullYear()}. Built with ❤️ using{" "}
         <a
-          href="https://caffeine.ai"
+          href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="neon-text-orange"

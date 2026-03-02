@@ -1,38 +1,46 @@
-# Free Fire Tournament
+# Legend Arena - Free Fire Tournament App
 
 ## Current State
-App uses Internet Identity for authentication. Users are identified by Principal ID. Profile page shows username, balance, tournaments, and a "COPY MY ID" button. No custom registration form exists.
+
+Full-stack Free Fire tournament app with:
+- Internet Identity-based login, then email+password profile setup
+- Legend ID auto-assigned (Nat, starts at 1, 4-digit padded display)
+- Login via email+password stored in `accounts` map
+- Admin identified by email `mrqlegendyt879@gmail.com` in frontend, plus `permanentOwner` principal in backend
+- Registration form: Full Name, In-Game Name, Game UID, Mobile, Email, Password, Confirm Password, Refer Code, Privacy Policy
 
 ## Requested Changes (Diff)
 
 ### Add
-- Custom registration form with fields: Full Name, In-Game Name, Game UID (optional), Mobile No. (+92 prefix), Email Address, Password, Confirm Password, Refer Code (optional), Privacy Policy checkbox
-- Login form with Email + Password
-- User profile extended to store: fullName, inGameName, gameUID, mobileNo, email, referCode
-- Backend: register user with email/password (hashed), login returns session token stored in profile
-- Admin can view all registered users with their details (fullName, email, mobileNo, inGameName, gameUID)
+- `loginByLegendId(legendId: Nat, passwordHash: Text)` backend function returning `{#ok: ExtendedUserProfile; #err: Text}`
+- `getAccountByLegendId(legendId: Nat)` admin-only function to look up account by legend ID
+- Admin's account is seeded at Legend ID = 1 (`#0001`) when first registered
+- `nextLegendId` starts at 1 so first registered user gets Legend ID 1
 
 ### Modify
-- Auth flow: replace Internet Identity login screen with custom Email/Password login + Register screen
-- Keep Internet Identity as the underlying identity mechanism but show a custom UI form on top -- store registration data linked to Principal
-- Profile page: show fullName, inGameName, gameUID, mobileNo, email fields (editable)
-- Admin Panel: add "Users" section listing all registered users with their info
+- `registerAccount`: legendId assignment stays sequential starting from 1 (no change needed to counter, already starts at 1)
+- Legend ID 1 is the owner/admin -- frontend `useIsCallerAdmin` should check `legendId === 1n` instead of email
+- `login` remains for backward compat but `loginByLegendId` is the primary login path
+- Registration form: remove Email field, add "Legend ID" display-only field showing the auto-generated ID after registration; user registers with Full Name, In-Game Name, Game UID, Mobile, Password, Confirm Password, Refer Code
+- Wait -- registration still needs an internal identifier. Email field stays on backend but is optional/auto-generated or user can provide it. Actually: keep email optional in registration (user may not enter one), the primary login credential is Legend ID + Password.
+- Login screen: replace "Email Address" field with "Legend ID" field (numeric input, user enters their 4-digit number e.g. 0001)
 
 ### Remove
-- Nothing removed
+- Email-based admin check in `useIsCallerAdmin` -- replace with Legend ID 1 check
+- Internet Identity requirement -- already removed in version 34+
 
 ## Implementation Plan
-1. Extend UserProfile backend type to include fullName, inGameName, gameUID, mobileNo, email, referCode fields
-2. Add registerUser function that saves extended profile
-3. Add getUsersList for admin to view all users
-4. Update AuthPage to show custom Register/Login forms (still uses Internet Identity under the hood for identity, but collects user info on first login)
-5. Update ProfilePage to show and allow editing of extended profile fields
-6. Update AdminPage to show Users tab with all registered users
 
-## UX Notes
-- Registration form style: dark background, orange accents (matching existing app theme)
-- Mobile No. field has +92 prefix (Pakistan)
-- Password field has show/hide toggle
-- "Already have an Account" link at bottom
-- On successful registration, user is taken to Home page
-- Internet Identity login still happens silently in background (needed for ICP) -- custom form collects display info
+### Backend
+1. Add `loginByLegendId(legendId: Nat, passwordHash: Text)` function that looks up account by legendId using `legendIdToEmail` map, then validates password
+2. Keep `registerAccount` as-is (email still stored internally as unique key; if user doesn't provide email, generate a placeholder like `legendXXXX@arena.local`)
+3. `nextLegendId` already starts at 1 -- first registrant gets Legend ID 1 (admin)
+4. Add `isAdminByLegendId` check: if logged-in user's profile has `legendId == 1`, they are admin
+
+### Frontend
+1. **AuthPage**: 
+   - Registration: keep all fields, make email optional (label "Email (Optional)"), show auto-generated Legend ID after signup
+   - Login tab: replace email field with "Legend ID" field (user types 1, 2, 3... or full 0001 format), call `loginByLegendId`
+2. **useLocalAuth**: store legendId in session, update login to use `loginByLegendId`
+3. **useIsCallerAdmin**: check `currentUser.legendId === 1` (admin is always Legend ID #0001)
+4. **ProfilePage**: Legend ID display stays same (already shows `#0001` format)

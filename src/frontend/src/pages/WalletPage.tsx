@@ -195,6 +195,7 @@ export default function WalletPage() {
     data: userProfile,
     isLoading: profileLoading,
     isError: profileError,
+    // profileError is used to decide whether to show skeleton or skip straight to content
   } = useGetCallerUserProfile();
   const { data: transactions, isLoading: txLoading } =
     useGetTransactionHistory();
@@ -282,8 +283,8 @@ export default function WalletPage() {
     color: "oklch(0.95 0.005 80)",
   };
 
-  // Show full-page skeleton while initial profile loads
-  if (profileLoading) {
+  // Show full-page skeleton only while initial actor is loading (not on auth errors)
+  if (profileLoading && !profileError) {
     return (
       <div className="flex flex-col gap-4 p-4 animate-fade-in">
         <Skeleton className="h-40 w-full bg-muted/50 rounded-2xl" />
@@ -298,16 +299,7 @@ export default function WalletPage() {
     );
   }
 
-  if (profileError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <LCoinIcon size={40} className="opacity-40" />
-        <p className="text-muted-foreground text-sm font-body">
-          Could not load wallet. Please refresh.
-        </p>
-      </div>
-    );
-  }
+  // On auth errors, fall through and render page with 0 balance (don't block UI)
 
   return (
     <div className="flex flex-col gap-4 p-4 animate-fade-in">
