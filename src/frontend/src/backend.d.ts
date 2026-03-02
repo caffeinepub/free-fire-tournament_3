@@ -117,6 +117,7 @@ export interface backendInterface {
     getCategories(): Promise<Array<Category>>;
     getGlobalLeaderboard(): Promise<Array<GlobalLeaderboardEntry>>;
     getLeaderboard(tournamentId: bigint): Promise<Array<LeaderboardEntry>>;
+    getNextLegendId(): Promise<bigint>;
     getPaymentNumbers(): Promise<PaymentNumbers>;
     getPendingDepositRequests(): Promise<Array<DepositRequest>>;
     getPendingWithdrawalRequests(): Promise<Array<WithdrawalRequest>>;
@@ -150,7 +151,7 @@ export interface backendInterface {
     postScores(tournamentId: bigint, scores: Array<[Principal, bigint]>): Promise<void>;
     registerAccount(email: string, passwordHash: string, fullName: string, inGameName: string, gameUID: string, mobileNo: string, referCode: string): Promise<{
         __kind__: "ok";
-        ok: null;
+        ok: ExtendedUserProfile;
     } | {
         __kind__: "err";
         err: string;

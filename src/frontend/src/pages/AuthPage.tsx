@@ -8,9 +8,10 @@ import {
   KeyRound,
   Loader2,
   Shield,
+  Sparkles,
   Zap,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useActor } from "../hooks/useActor";
 import { useLocalAuth } from "../hooks/useLocalAuth";
@@ -37,6 +38,36 @@ export default function AuthPage() {
   const { actor } = useActor();
   const { setCurrentUser } = useLocalAuth();
   const [view, setView] = useState<View>("signin");
+
+  // ── Next Legend ID (for Register form) ────────────────────────────────────
+  const [nextLegendId, setNextLegendId] = useState<string | null>(null);
+  const legendIdFetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (!actor || legendIdFetchedRef.current) return;
+    legendIdFetchedRef.current = true;
+    actor
+      .getNextLegendId()
+      .then((id) => {
+        const num = Number(id);
+        setNextLegendId(`#${String(num).padStart(4, "0")}`);
+      })
+      .catch(() => {
+        legendIdFetchedRef.current = false; // allow retry
+      });
+  }, [actor]);
+
+  // Re-fetch when switching to register tab and actor just became available
+  useEffect(() => {
+    if (view !== "register" || !actor || nextLegendId) return;
+    actor
+      .getNextLegendId()
+      .then((id) => {
+        const num = Number(id);
+        setNextLegendId(`#${String(num).padStart(4, "0")}`);
+      })
+      .catch(() => {});
+  }, [view, actor, nextLegendId]);
 
   // ── Sign In ────────────────────────────────────────────────────────────────
   const [siLegendId, setSiLegendId] = useState("");
@@ -108,6 +139,10 @@ export default function AuthPage() {
 
       setCurrentUser(user);
       toast.success(`Welcome back, ${profile.inGameName || profile.fullName}!`);
+      // Force full page reload so app state refreshes immediately
+      setTimeout(() => {
+        window.location.reload();
+      }, 300);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -185,21 +220,25 @@ export default function AuthPage() {
         return;
       }
 
+      // Auto-login immediately after successful registration
+      const profile = regResult.ok;
+      const user = {
+        email: profile.email,
+        legendId: Number(profile.legendId),
+        fullName: profile.fullName,
+        inGameName: profile.inGameName,
+        gameUID: profile.gameUID,
+        mobileNo: profile.mobileNo,
+        referCode: profile.referCode,
+      };
+      setCurrentUser(user);
       toast.success(
-        "Registration successful! Sign in with your Legend ID to continue.",
+        `Welcome to Legend Arena, ${profile.inGameName || profile.fullName}! 🎮`,
       );
-
-      // Reset form and switch to sign in
-      setFullName("");
-      setInGameName("");
-      setGameUID("");
-      setMobileNo("");
-      setRegEmail("");
-      setRegPassword("");
-      setConfirmPassword("");
-      setReferCode("");
-      setPrivacyAccepted(false);
-      setView("signin");
+      // Force full page reload so app state refreshes immediately
+      setTimeout(() => {
+        window.location.reload();
+      }, 300);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -498,20 +537,71 @@ export default function AuthPage() {
                   onSubmit={handleRegister}
                   className="flex flex-col gap-2.5"
                 >
-                  {/* Auto Legend ID notice */}
+                  {/* Legend ID Preview Card */}
                   <div
-                    className="rounded-xl p-3 text-center"
+                    className="rounded-2xl p-4 text-center relative overflow-hidden"
                     style={{
-                      background: "oklch(0.72 0.22 45 / 0.06)",
-                      border: "1px solid oklch(0.72 0.22 45 / 0.2)",
+                      background:
+                        "linear-gradient(135deg, oklch(0.18 0.06 55), oklch(0.14 0.04 45))",
+                      border: "1px solid oklch(0.72 0.22 45 / 0.5)",
+                      boxShadow:
+                        "0 0 24px oklch(0.72 0.22 45 / 0.15), inset 0 1px 0 oklch(0.72 0.22 45 / 0.2)",
                     }}
                   >
-                    <p className="text-[10px] font-body text-muted-foreground leading-relaxed">
-                      Your{" "}
-                      <span className="neon-text-orange font-bold">
-                        Legend ID
-                      </span>{" "}
-                      will be assigned automatically after registration
+                    {/* Shine overlay */}
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, oklch(0.72 0.22 45 / 0.05) 0%, transparent 60%)",
+                      }}
+                    />
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <Sparkles
+                        className="w-3 h-3"
+                        style={{ color: "oklch(0.72 0.22 45)" }}
+                      />
+                      <span
+                        className="text-[10px] font-body uppercase tracking-[0.15em]"
+                        style={{ color: "oklch(0.72 0.22 45 / 0.8)" }}
+                      >
+                        Your Legend ID
+                      </span>
+                      <Sparkles
+                        className="w-3 h-3"
+                        style={{ color: "oklch(0.72 0.22 45)" }}
+                      />
+                    </div>
+                    {nextLegendId ? (
+                      <p
+                        className="font-display font-bold text-4xl tracking-wider"
+                        style={{
+                          color: "oklch(0.85 0.22 55)",
+                          textShadow:
+                            "0 0 20px oklch(0.72 0.22 45 / 0.6), 0 0 40px oklch(0.72 0.22 45 / 0.3)",
+                        }}
+                      >
+                        {nextLegendId}
+                      </p>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 h-10">
+                        <Loader2
+                          className="w-5 h-5 animate-spin"
+                          style={{ color: "oklch(0.72 0.22 45)" }}
+                        />
+                        <span
+                          className="font-display text-sm"
+                          style={{ color: "oklch(0.72 0.22 45 / 0.6)" }}
+                        >
+                          Loading...
+                        </span>
+                      </div>
+                    )}
+                    <p
+                      className="text-[10px] font-body mt-1"
+                      style={{ color: "oklch(0.6 0.05 55)" }}
+                    >
+                      This ID will be assigned to your account
                     </p>
                   </div>
 

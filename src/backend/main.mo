@@ -197,6 +197,10 @@ actor {
     tournamentRoomDetails.get(tournamentId);
   };
 
+  public query ({ caller }) func getNextLegendId() : async Nat {
+    nextLegendId;
+  };
+
   public shared func loginByLegendId(
     legendId : Nat,
     passwordHash : Text,
@@ -256,7 +260,7 @@ actor {
     gameUID : Text,
     mobileNo : Text,
     referCode : Text,
-  ) : async { #ok; #err : Text } {
+  ) : async { #ok : ExtendedUserProfile; #err : Text } {
     if (accounts.containsKey(email)) {
       return #err("Email already taken. Please use another email");
     };
@@ -285,7 +289,7 @@ actor {
     };
 
     accounts.add(email, accountInfo);
-    #ok;
+    #ok(profile);
   };
 
   public shared func login(
